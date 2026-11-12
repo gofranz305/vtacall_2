@@ -530,6 +530,34 @@
   ],
   "auditLogs": [
     {
+      "id": "AUD-1794459028886-592",
+      "timestamp": "2026-11-12T04:50:28.887Z",
+      "userId": "usr_student1",
+      "userName": "Harvey Lloyd Pagtalunan",
+      "userRole": "requester",
+      "action": "USER_LOGIN",
+      "targetEntity": "user",
+      "targetId": "usr_student1",
+      "details": "User logged in successfully via web interface.",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+      "integrityHash": "a1570920bc0c42364c08400a4e25ff22185c053b60e1ce715444a6b2d9c85c16"
+    },
+    {
+      "id": "AUD-1794459024861-989",
+      "timestamp": "2026-11-12T04:50:24.861Z",
+      "userId": "usr_admin1",
+      "userName": "Dr. Eleanor Reyes, MD, MHA",
+      "userRole": "admin",
+      "action": "USER_LOGOUT",
+      "targetEntity": "user",
+      "targetId": "usr_admin1",
+      "details": "User logged out successfully from web application.",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+      "integrityHash": "67d52b3b94ed2d1259f75aeda3c920e0577a8bd07f019258fd5365c6c6fb6eb7"
+    },
+    {
       "id": "AUD-1794458061056-920",
       "timestamp": "2026-11-12T04:34:21.056Z",
       "userId": "usr_admin1",
