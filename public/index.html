@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VitaCall - USTP Villanueva Health Request & Monitoring</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="config.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ustp: {
+              navy: '#101E38',
+              navyLight: '#1A2B49',
+              blue: '#1E3A8A',
+              gold: '#EAA100',
+              goldLight: '#FDB913',
+              goldDark: '#C28200',
+              cream: '#FFFDF5'
+            },
+            medical: {
+              teal: '#0D9488',
+              tealLight: '#14B8A6',
+              surface: '#F0FDFA'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col pb-20 md:pb-0">
+
+  <!-- TOP EMERGENCY BANNER -->
+  <aside aria-label="Emergency warning" id="emergencyBanner" class="bg-amber-500 text-slate-950 px-3 sm:px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-sm z-40">
+    <div class="flex items-center space-x-2 truncate">
+      <span class="flex h-2.5 w-2.5 rounded-full bg-red-600 animate-ping flex-shrink-0"></span>
+      <span class="truncate">⚠️ <strong>CAMPUS HEALTH ADVISORY:</strong> VitaCall is for non-emergency boarding house checkups. In life-threatening emergencies, call Villanueva MDRRMO (0917-882-8911) or 911 immediately.</span>
+    </div>
+    <div class="hidden sm:flex items-center space-x-3 text-xs pl-3 flex-shrink-0">
+      <a href="tel:911" class="bg-red-700 text-white px-2.5 py-1 rounded-full hover:bg-red-800 transition font-bold flex items-center gap-1">
+        <i data-lucide="phone-call" class="w-3.5 h-3.5"></i> Call 911
+      </a>
+      <span class="text-amber-950 font-medium">Clinic Hotline: 0920-111-8899</span>
+    </div>
+  </aside>
+
+  <!-- MAIN APP HEADER -->
+  <header id="appHeader" class="bg-ustp-navy text-white sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <!-- Logo & Branding -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="handleBrandClick()">
+        <div class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-sm flex-shrink-0">
+          <img src="assets/ustp-logo.svg" alt="USTP Logo" class="w-full h-full object-contain">
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center">
+              Vita<span class="text-ustp-goldLight">Call</span>
+            </span>
+            <span class="text-[10px] bg-ustp-gold/20 text-ustp-goldLight border border-ustp-gold/40 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
+              Villanueva
+            </span>
+          </div>
+          <p class="text-[10px] text-slate-300 hidden sm:block">Mobile Health Request & Monitoring</p>
+        </div>
+      </div>
+
+      <!-- Navigation & Auth Controls -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        
+        <!-- LOGGED-IN CONTROLS -->
+        <div id="headerLoggedInControls" class="hidden flex items-center space-x-2 sm:space-x-3">
+          
+          <!-- Desktop Nav Links -->
+          <nav class="hidden md:flex items-center space-x-1 text-xs font-semibold mr-1">
+            <button onclick="navigate('dashboard')" class="nav-btn px-3 py-1.5 rounded-lg hover:bg-slate-800 transition text-slate-200" data-view="dashboard">Dashboard</button>
+            <button onclick="navigate('profile')" class="nav-btn px-3 py-1.5 rounded-lg hover:bg-slate-800 transition text-slate-200" data-view="profile">Profile</button>
+          </nav>
+
+          <!-- In-App Notification Bell -->
+          <div class="relative">
+            <button id="notifBellBtn" onclick="toggleNotifications()" class="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition relative">
+              <i data-lucide="bell" class="w-5 h-5"></i>
+              <span id="notifBadge" class="hidden absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-ustp-navy"></span>
+            </button>
+            
+            <!-- Notifications Popover -->
+            <div id="notifPanel" class="hidden absolute right-0 mt-2 w-72 sm:w-80 bg-white text-slate-800 rounded-xl shadow-2xl border border-slate-200 z-50 max-h-96 overflow-y-auto">
+              <div class="p-3 border-b border-slate-100 flex items-center justify-between">
+                <span class="font-bold text-sm text-slate-800">In-App Notifications</span>
+                <span id="notifCount" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">0 new</span>
+              </div>
+              <div id="notifList" class="divide-y divide-slate-100 text-xs">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- User Profile Pill -->
+          <button onclick="navigate('profile')" class="flex items-center space-x-2 bg-slate-800/80 hover:bg-slate-800 text-xs px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-700 transition">
+            <div id="headerUserAvatar" class="w-6 h-6 rounded-full bg-ustp-gold text-slate-950 font-bold flex items-center justify-center text-[10px]">
+              U
+            </div>
+            <div class="text-left hidden sm:block">
+              <div id="headerUserName" class="font-bold text-white text-xs truncate max-w-[120px]">User Name</div>
+              <div id="headerUserRole" class="text-[10px] text-ustp-goldLight font-medium capitalize">Student</div>
+            </div>
+          </button>
+
+          <!-- Dedicated Log Out Button -->
+          <button onclick="logout()" title="Log out of VitaCall" class="flex items-center space-x-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white px-2.5 sm:px-3 py-1.5 rounded-xl border border-rose-500/30 transition text-xs font-semibold">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Log Out</span>
+          </button>
+        </div>
+
+        <!-- LOGGED-OUT CONTROLS -->
+        <div id="headerLoggedOutControls" class="flex items-center space-x-2">
+          <button onclick="switchAuthTab('login')" class="text-xs font-bold bg-ustp-gold text-slate-950 px-3.5 py-1.5 rounded-lg hover:bg-amber-400 transition shadow-sm">
+            Sign In
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- ==================== VIEW 0: AUTHENTICATION (SEPARATE ACCOUNTS) ==================== -->
+    <section id="authView" class="max-w-xl mx-auto py-6 sm:py-10">
+      <div class="bg-white rounded-3xl p-6 sm:p-9 shadow-xl border border-slate-200 relative overflow-hidden">
+        
+        <!-- Card Header -->
+        <div class="text-center space-y-2 mb-6">
+          <div class="w-16 h-16 rounded-2xl bg-amber-50 p-2 border border-amber-200/80 mx-auto flex items-center justify-center shadow-sm">
+            <img src="assets/ustp-logo.svg" alt="USTP Logo" class="w-full h-full object-contain">
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Vita<span class="text-ustp-gold">Call</span> Portal</h1>
+          <p class="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto">
+            University of Science and Technology of Southern Philippines<br>
+            <strong>Villanueva Campus</strong> • Student Health &amp; Monitoring
+          </p>
+        </div>
+
+        <!-- Auth Tabs (Sign In vs Register) -->
+        <div class="flex items-center p-1 bg-slate-100 rounded-xl mb-6 text-xs font-bold">
+          <button id="tabBtnLogin" onclick="switchAuthTab('login')" class="flex-1 py-2 rounded-lg bg-white text-slate-900 shadow-sm transition">
+            Sign In to Account
+          </button>
+          <button id="tabBtnRegister" onclick="switchAuthTab('register')" class="flex-1 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">
+            Student Registration
+          </button>
+        </div>
+
+        <!-- 1. SIGN IN FORM -->
+        <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4 text-xs sm:text-sm">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+            <div class="relative">
+              <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+              <input type="email" id="loginEmail" placeholder="your.name@ustp.edu.ph" class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-ustp-navy focus:bg-white transition" required>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Password</label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+              <input type="password" id="loginPassword" placeholder="••••••••" class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-ustp-navy focus:bg-white transition" required>
+            </div>
+          </div>
+
+          <button type="submit" id="btnLoginSubmit" class="w-full py-3 bg-ustp-navy hover:bg-ustp-navyLight text-white rounded-xl font-bold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2">
+            <i data-lucide="log-in" class="w-4 h-4 text-ustp-goldLight"></i>
+            <span>Sign In to Account</span>
+          </button>
+
+          <!-- Task 6: Error message on failed login -->
+          <div id="loginError" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl px-3 py-2.5 font-medium flex items-start gap-2 mt-1" role="alert">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="loginErrorText"></span>
+          </div>
+
+          <!-- Quick-Fill Accounts for Demo / Defense Testing -->
+          <div class="pt-4 border-t border-slate-100">
+            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-2">
+              Quick Test Accounts (Click to Pre-fill)
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <button type="button" onclick="prefillLogin('harvey.pagtalunan@ustp.edu.ph')" class="p-2 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition">
+                <div class="font-bold text-slate-900 truncate">🎓 Harvey (Student)</div>
+                <div class="text-[10px] text-slate-500">Villa Rosa Dorm Rm 4</div>
+              </button>
+              <button type="button" onclick="prefillLogin('franz.go@ustp.edu.ph')" class="p-2 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition">
+                <div class="font-bold text-slate-900 truncate">🎓 Franz (Student)</div>
+                <div class="text-[10px] text-slate-500">Sunrise Dorm Rm 2B</div>
+              </button>
+              <button type="button" onclick="prefillLogin('nurse.sarah@ustp.edu.ph')" class="p-2 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200 text-left transition">
+                <div class="font-bold text-teal-900 truncate">🩺 Nurse Sarah, RN</div>
+                <div class="text-[10px] text-teal-700">Health Personnel</div>
+              </button>
+              <button type="button" onclick="prefillLogin('admin.clinic@ustp.edu.ph')" class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-left transition">
+                <div class="font-bold text-indigo-900 truncate">🛡️ Dr. Reyes (Admin)</div>
+                <div class="text-[10px] text-indigo-700">Clinic Director</div>
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <!-- 2. STUDENT REGISTRATION FORM -->
+        <form id="registerForm" onsubmit="handleRegisterSubmit(event)" class="hidden space-y-3.5 text-xs sm:text-sm">
+          <div class="bg-amber-50/70 p-3 rounded-xl border border-amber-200 text-xs text-amber-900">
+            <strong>Boarding Student Registration:</strong> Create your profile with your Villanueva boarding house location so health personnel can locate you when ill.
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+              <input type="text" id="regName" placeholder="e.g. Maria Santos" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">USTP Student ID</label>
+              <input type="text" id="regStudentId" placeholder="e.g. 2024-30123" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">USTP Email</label>
+              <input type="email" id="regEmail" placeholder="m.santos@ustp.edu.ph" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Password</label>
+              <input type="password" id="regPassword" placeholder="Minimum 6 characters" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required minlength="6">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Course &amp; Year Level</label>
+              <input type="text" id="regCourse" placeholder="e.g. BS Information Technology - 2nd Year" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Contact Phone #</label>
+              <input type="tel" id="regPhone" placeholder="+63 917 123 4567" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Boarding House / Dormitory Name &amp; Room #</label>
+            <input type="text" id="regBoardingHouse" placeholder="e.g. Sunset Dormitory (Room 3A)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Complete Address (Villanueva)</label>
+            <input type="text" id="regAddress" placeholder="e.g. Purok 3, Katipunan, Villanueva, Misamis Oriental" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Landmarks / Gate Directions</label>
+            <input type="text" id="regLandmark" placeholder="e.g. Beside Barangay Hall, yellow gate, 2nd floor" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Emergency Contact Person</label>
+              <input type="text" id="regEmName" placeholder="Parent or Guardian Name" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Emergency Contact Phone</label>
+              <input type="tel" id="regEmPhone" placeholder="+63 918 000 0000" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" required>
+            </div>
+          </div>
+
+          <button type="submit" id="btnRegisterSubmit" class="w-full py-3 bg-ustp-navy hover:bg-ustp-navyLight text-white rounded-xl font-bold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2">
+            <i data-lucide="user-plus" class="w-4 h-4 text-ustp-goldLight"></i>
+            <span>Create Student Account</span>
+          </button>
+
+          <!-- Register Error -->
+          <div id="registerError" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl px-3 py-2.5 font-medium flex items-start gap-2 mt-2" role="alert">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="registerErrorText"></span>
+          </div>
+        </form>
+
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 1: STUDENT / REQUESTER DASHBOARD ==================== -->
+    <section id="viewStudentDashboard" class="space-y-6 hidden">
+      <!-- Student Profile Card & Hero Banner -->
+      <div class="bg-gradient-to-br from-ustp-navy to-ustp-navyLight text-white rounded-2xl p-5 sm:p-7 shadow-lg relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 w-44 h-44 opacity-10 pointer-events-none">
+          <img src="assets/ustp-logo.svg" alt="Watermark" class="w-full h-full object-contain">
+        </div>
+        
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2 text-ustp-goldLight text-xs font-bold tracking-wide uppercase mb-1">
+              <span>USTP Villanueva Student Health Portal</span>
+              <span>•</span>
+              <span class="bg-ustp-gold/20 px-2 py-0.5 rounded text-[11px] border border-ustp-gold/30">Active Student Requester</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-white" id="studentWelcomeName">Harvey Lloyd Pagtalunan</h1>
+            <p class="text-slate-300 text-xs sm:text-sm mt-1 flex items-center gap-1.5">
+              <i data-lucide="map-pin" class="w-4 h-4 text-ustp-gold flex-shrink-0"></i>
+              <span id="studentBoardingHouseDisplay">Villa Rosa Boarding House (Rm 4), Purok 2, Looc, Villanueva</span>
+            </p>
+            <div class="flex flex-wrap items-center gap-2 mt-3 text-xs text-slate-300">
+              <span class="bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700" id="studentIdDisplay">ID: 2023-30192</span>
+              <span class="bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700" id="studentCourseDisplay">BSIT - 3rd Year</span>
+              <span class="bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700" id="studentPhoneDisplay">+63 917 555 0192</span>
+              <button onclick="navigate('profile')" class="bg-amber-500/20 hover:bg-amber-500/30 text-ustp-goldLight px-2.5 py-1 rounded-md border border-amber-500/40 text-xs font-bold flex items-center gap-1 transition">
+                <i data-lucide="edit-3" class="w-3 h-3"></i> Edit Profile
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Action Button -->
+          <div class="flex-shrink-0 pt-2 md:pt-0">
+            <button onclick="openRequestModal()" class="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-ustp-gold hover:from-amber-600 hover:to-ustp-goldDark text-slate-950 font-bold px-6 py-3.5 rounded-xl shadow-lg hover:shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2 text-sm sm:text-base">
+              <i data-lucide="plus-circle" class="w-5 h-5"></i>
+              <span>Request Checkup Now</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVE CHECKUP REQUEST SECTION -->
+      <div id="activeRequestContainer" class="space-y-4">
+        <!-- Injected dynamically via JS: Stepper, Personnel Assignment, Status info -->
+      </div>
+
+      <!-- MEDICAL CERTIFICATES SECTION -->
+      <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+              <i data-lucide="file-badge" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="font-bold text-slate-900 text-base sm:text-lg">My Issued Medical Certificates</h2>
+              <p class="text-xs text-slate-500">Official medical certificates issued upon off-site boarding house checkup</p>
+            </div>
+          </div>
+          <span id="certCountBadge" class="text-xs bg-slate-100 text-slate-700 font-semibold px-2.5 py-1 rounded-full">0 certificates</span>
+        </div>
+
+        <div id="studentCertificatesList" class="space-y-3">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- BOARDING HOUSE HEALTH GUIDANCE & CLINIC INFO -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-4 flex items-start space-x-3">
+          <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Boarding House Protocol</h3>
+            <p class="text-slate-600 text-xs mt-1">If you have a fever, isolate in your room and inform your dorm landlord or roommate while waiting for our campus nurse.</p>
+          </div>
+        </div>
+
+        <div class="bg-teal-50/70 border border-teal-100 rounded-xl p-4 flex items-start space-x-3">
+          <div class="w-9 h-9 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="award" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Excused Absence Slip</h3>
+            <p class="text-slate-600 text-xs mt-1">Completed checkups automatically issue an official certificate with medical license credentials to excuse your classes.</p>
+          </div>
+        </div>
+
+        <div class="bg-amber-50/70 border border-amber-100 rounded-xl p-4 flex items-start space-x-3">
+          <div class="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="heart-pulse" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Free Campus Health Care</h3>
+            <p class="text-slate-600 text-xs mt-1">Consultation, on-site checkups, basic OTC medicines, and medical certificate issuance are free for USTP students.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAST REQUEST HISTORY -->
+      <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+        <h2 class="font-bold text-slate-900 text-base sm:text-lg mb-3">Request History</h2>
+        <div id="studentRequestHistory" class="divide-y divide-slate-100 text-xs sm:text-sm">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: HEALTH PERSONNEL / MONITOR DASHBOARD ==================== -->
+    <section id="viewPersonnelDashboard" class="space-y-6 hidden">
+      <!-- Personnel Header -->
+      <div class="bg-gradient-to-r from-teal-900 to-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2 text-teal-300 text-xs font-bold tracking-wide uppercase mb-1">
+            <span>USTP Health Personnel Triage Portal</span>
+            <span>•</span>
+            <span class="bg-teal-400/20 px-2 py-0.5 rounded text-[11px] border border-teal-400/30">Active Responder</span>
+          </div>
+          <h1 class="text-2xl font-extrabold text-white" id="personnelNameDisplay">Nurse Sarah Alcantara, RN</h1>
+          <p class="text-slate-300 text-xs sm:text-sm mt-0.5" id="personnelTitleDisplay">Campus Health Nurse • PRC RN-0982341</p>
+        </div>
+
+        <!-- Quick Summary Counters -->
+        <div class="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+          <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-2.5">
+            <div class="text-amber-400 font-extrabold text-lg sm:text-xl" id="statPendingCount">0</div>
+            <div class="text-[10px] sm:text-xs text-slate-300">Pending Triage</div>
+          </div>
+          <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-2.5">
+            <div class="text-teal-400 font-extrabold text-lg sm:text-xl" id="statActiveCount">0</div>
+            <div class="text-[10px] sm:text-xs text-slate-300">En Route / Active</div>
+          </div>
+          <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-2.5">
+            <div class="text-emerald-400 font-extrabold text-lg sm:text-xl" id="statCompletedToday">0</div>
+            <div class="text-[10px] sm:text-xs text-slate-300">Completed</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Triage Filter Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200">
+        <!-- Tabs -->
+        <div class="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs font-semibold">
+          <button onclick="filterQueue('all')" class="queue-tab px-3 py-1.5 rounded-lg bg-ustp-navy text-white transition" data-filter="all">All Requests</button>
+          <button onclick="filterQueue('pending')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="pending">Pending Triage</button>
+          <button onclick="filterQueue('active')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="active">En Route / In Progress</button>
+          <button onclick="filterQueue('completed')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="completed">Completed</button>
+        </div>
+
+        <!-- Search input -->
+        <div class="relative w-full sm:w-64">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+          <input type="text" id="queueSearchInput" oninput="searchQueue(this.value)" placeholder="Search student or dorm..." class="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+      </div>
+
+      <!-- Request Queue List -->
+      <div id="personnelQueueList" class="space-y-4">
+        <!-- Populated via JS -->
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 3: HEALTH CENTER ADMIN & AUDIT LOGS ==================== -->
+    <section id="viewAdminDashboard" class="space-y-6 hidden">
+      <!-- Admin Header -->
+      <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-ustp-navy text-white rounded-2xl p-5 sm:p-7 shadow-lg flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2 text-indigo-300 text-xs font-bold tracking-wide uppercase mb-1">
+            <span>USTP Health Services Oversight</span>
+            <span>•</span>
+            <span class="bg-indigo-500/20 px-2 py-0.5 rounded text-[11px] border border-indigo-400/30">System Administrator</span>
+          </div>
+          <h1 class="text-2xl font-extrabold text-white">Health Center Admin & Security Audit</h1>
+          <p class="text-slate-300 text-xs sm:text-sm mt-0.5">CIA Triad Enforcement, Real-Time Surveillance & Tamper-Proof Audit Trail</p>
+        </div>
+
+        <!-- Backup & Recovery Actions -->
+        <div class="flex items-center gap-2">
+          <button onclick="exportDatabaseBackup()" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+            <span>Export DB Backup</span>
+          </button>
+          <label class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer">
+            <i data-lucide="upload" class="w-4 h-4 text-amber-400"></i>
+            <span>Restore DB</span>
+            <input type="file" id="dbRestoreInput" accept=".json" onchange="restoreDatabaseBackup(event)" class="hidden">
+          </label>
+        </div>
+      </div>
+
+      <!-- Surveillance Metrics Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">Total Checkup Requests</div>
+          <div class="text-2xl font-black text-slate-900 mt-1" id="adminTotalReq">0</div>
+          <div class="text-[11px] text-teal-600 mt-1 flex items-center gap-1">
+            <i data-lucide="activity" class="w-3 h-3"></i> Off-site requests
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">Boarding Houses Covered</div>
+          <div class="text-2xl font-black text-indigo-700 mt-1" id="adminTotalDorms">5</div>
+          <div class="text-[11px] text-slate-500 mt-1">Villanueva perimeter</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">Certificates Issued</div>
+          <div class="text-2xl font-black text-emerald-600 mt-1" id="adminTotalCerts">0</div>
+          <div class="text-[11px] text-slate-500 mt-1">Cryptographically signed</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">Audit Trail Events</div>
+          <div class="text-2xl font-black text-amber-600 mt-1" id="adminTotalLogs">0</div>
+          <div class="text-[11px] text-slate-500 mt-1">SHA-256 chained</div>
+        </div>
+      </div>
+
+      <!-- Health Surveillance: Symptom Clusters & Dormitory Density -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Hotspots -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 class="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2 mb-3">
+            <i data-lucide="map-pinned" class="w-4 h-4 text-amber-600"></i>
+            <span>Boarding House Request Density (Villanueva)</span>
+          </h2>
+          <div id="dormDensityList" class="space-y-2 text-xs">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+
+        <!-- Top Symptoms Observed -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 class="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2 mb-3">
+            <i data-lucide="thermometer-snowflake" class="w-4 h-4 text-rose-600"></i>
+            <span>Campus Illness Surveillance Clusters</span>
+          </h2>
+          <div id="symptomClusterList" class="space-y-2 text-xs">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Immutable Audit Logs (Information Assurance CIA Triad) -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 class="font-bold text-slate-900 text-base flex items-center gap-2">
+              <i data-lucide="lock" class="w-4 h-4 text-indigo-700"></i>
+              <span>Information Assurance Audit Trail</span>
+            </h2>
+            <p class="text-xs text-slate-500">Every access, triage update, diagnosis, and certificate generation is logged with timestamp, user ID, IP, and hash.</p>
+          </div>
+          <button onclick="refreshAuditLogs()" class="text-xs text-indigo-700 hover:text-indigo-900 font-semibold flex items-center gap-1 self-start sm:self-auto">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Logs
+          </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+              <tr>
+                <th class="p-3">Timestamp</th>
+                <th class="p-3">User &amp; Role</th>
+                <th class="p-3">Action</th>
+                <th class="p-3">Target Entity</th>
+                <th class="p-3">Details</th>
+                <th class="p-3">IP Address</th>
+                <th class="p-3">Integrity Hash</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody" class="divide-y divide-slate-100 font-mono">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 4: EDITABLE USER PROFILE ==================== -->
+    <section id="viewProfile" class="max-w-2xl mx-auto space-y-6 hidden">
+      <!-- Profile Header Card -->
+      <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm">
+        <div class="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-5 border-b border-slate-100 pb-6">
+          <div class="flex flex-col items-center flex-shrink-0">
+            <div id="profileAvatar" class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-ustp-navy to-ustp-blue text-ustp-goldLight text-2xl font-black flex items-center justify-center shadow-md">
+              U
+            </div>
+            <button type="button" onclick="document.getElementById('profilePicInput')?.click()" class="mt-2 text-[10px] font-bold text-ustp-navy hover:text-blue-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition border border-slate-200 flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-ustp-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span id="profilePicHeaderBtnText">Add Profile Picture</span>
+            </button>
+          </div>
+          <div class="text-center sm:text-left flex-1 min-w-0">
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <h2 id="profileDisplayName" class="text-xl sm:text-2xl font-black text-slate-900">User Full Name</h2>
+              <span id="profileRoleBadge" class="bg-amber-100 text-amber-800 text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase">
+                Student
+              </span>
+            </div>
+            <p id="profileDisplayEmail" class="text-xs sm:text-sm text-slate-500 mt-0.5">user.email@ustp.edu.ph</p>
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2 text-xs text-slate-600">
+              <span id="profileDisplayIdBadge" class="bg-slate-100 px-2 py-0.5 rounded font-mono">ID: 2023-XXXX</span>
+              <span id="profileDisplaySubtitle" class="text-slate-500">Boarding Resident • Villanueva</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Editable Profile Form -->
+        <form id="editProfileForm" onsubmit="handleProfileUpdate(event)" class="mt-6 space-y-4 text-xs sm:text-sm">
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+              <input type="text" id="profName" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-ustp-navy focus:bg-white" required>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Contact Phone Number</label>
+              <input type="tel" id="profPhone" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-ustp-navy focus:bg-white" required>
+            </div>
+          </div>
+
+          <!-- Student-Specific Fields -->
+          <div id="profStudentFields" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">USTP Student ID</label>
+                <input type="text" id="profStudentId" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-ustp-navy focus:bg-white">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Course &amp; Year Level</label>
+                <input type="text" id="profCourse" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-ustp-navy focus:bg-white">
+              </div>
+            </div>
+
+            <div class="bg-amber-50/50 p-4 rounded-2xl border border-amber-200/80 space-y-3">
+              <div class="font-bold text-amber-950 text-xs flex items-center gap-1.5">
+                <i data-lucide="home" class="w-4 h-4 text-amber-600"></i>
+                <span>Boarding House Location Details</span>
+              </div>
+              
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Boarding House Name &amp; Room #</label>
+                <input type="text" id="profBoardingHouse" class="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-ustp-navy">
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Street / Purok / Barangay Address</label>
+                <input type="text" id="profAddress" class="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-ustp-navy">
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Landmarks &amp; Gate Instructions</label>
+                <input type="text" id="profLandmark" class="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-ustp-navy" placeholder="e.g. Behind Villa Rosa Bakery, blue door #4">
+              </div>
+            </div>
+
+            <!-- Emergency Contact -->
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+              <div class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                <i data-lucide="phone-call" class="w-4 h-4 text-teal-600"></i>
+                <span>Emergency Contact Person</span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-semibold text-slate-600 text-xs mb-1">Contact Name &amp; Relation</label>
+                  <input type="text" id="profEmName" placeholder="e.g. Maria Pagtalunan (Mother)" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs">
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-600 text-xs mb-1">Contact Phone Number</label>
+                  <input type="tel" id="profEmPhone" placeholder="+63 918 000 0000" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Personnel-Specific Fields -->
+          <div id="profPersonnelFields" class="space-y-3.5 hidden">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Official Designation / Title</label>
+              <input type="text" id="profTitle" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">PRC License Number</label>
+              <input type="text" id="profLicense" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm">
+            </div>
+          </div>
+
+          <!-- Task 5: Profile Picture Upload Section -->
+          <div id="profilePicSection"></div>
+
+          <!-- Change Password Section -->
+          <div class="pt-2 border-t border-slate-100">
+            <label class="block font-bold text-slate-700 mb-1">Update Password (optional)</label>
+            <input type="password" id="profNewPassword" placeholder="Leave blank to keep current password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm">
+          </div>
+
+          <!-- Profile Error Container -->
+          <div id="profileError" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl px-3 py-2.5 font-medium flex items-start gap-2 mt-2" role="alert">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="profileErrorText"></span>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+            <button type="button" onclick="logout()" class="w-full sm:w-auto text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-4 py-2.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 border border-rose-200">
+              <i data-lucide="log-out" class="w-4 h-4"></i>
+              <span>Sign Out of Account</span>
+            </button>
+
+            <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+              <button type="button" onclick="navigate('dashboard')" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition">
+                Back to Dashboard
+              </button>
+              <button type="submit" id="btnSaveProfile" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5">
+                <i data-lucide="save" class="w-4 h-4 text-ustp-gold"></i>
+                <span>Save Changes</span>
+              </button>
+            </div>
+          </div>
+
+        </form>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MOBILE BOTTOM NAVIGATION BAR ==================== -->
+  <nav id="bottomNav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-around z-40 shadow-lg">
+    <button onclick="navigate('dashboard')" class="mobile-nav-btn flex flex-col items-center text-slate-600 hover:text-ustp-navy text-[10px] font-semibold" data-view="dashboard">
+      <i data-lucide="home" class="w-5 h-5 mb-0.5"></i>
+      <span>Home</span>
+    </button>
+    <button onclick="navigate('dashboard')" class="mobile-nav-btn flex flex-col items-center text-slate-600 hover:text-ustp-navy text-[10px] font-semibold" data-view="requests">
+      <i data-lucide="clipboard-list" class="w-5 h-5 mb-0.5"></i>
+      <span>Requests</span>
+    </button>
+    
+    <!-- Big Floating Action Button in Middle -->
+    <button onclick="handleFabClick()" class="w-12 h-12 -mt-5 rounded-full bg-gradient-to-r from-amber-500 to-ustp-gold text-slate-950 flex items-center justify-center shadow-lg border-2 border-white transform active:scale-90 transition">
+      <i id="fabIcon" data-lucide="plus" class="w-6 h-6"></i>
+    </button>
+
+    <button onclick="navigate('profile')" class="mobile-nav-btn flex flex-col items-center text-slate-600 hover:text-ustp-navy text-[10px] font-semibold" data-view="profile">
+      <i data-lucide="user" class="w-5 h-5 mb-0.5"></i>
+      <span>Profile</span>
+    </button>
+    <button id="mobileAdminBtn" onclick="navigate('admin')" class="mobile-nav-btn flex flex-col items-center text-slate-600 hover:text-ustp-navy text-[10px] font-semibold hidden" data-view="admin">
+      <i data-lucide="shield" class="w-5 h-5 mb-0.5"></i>
+      <span>Admin</span>
+    </button>
+  </nav>
+
+  <!-- ==================== MODAL 1: NEW CHECKUP REQUEST ==================== -->
+  <div id="requestModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-7 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+            <i data-lucide="activity" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">Request Off-Site Health Checkup</h2>
+            <p class="text-xs text-slate-500">USTP Health Personnel will visit your boarding house</p>
+          </div>
+        </div>
+        <button onclick="closeRequestModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="newRequestForm" onsubmit="submitCheckupRequest(event)" class="mt-4 space-y-4 text-xs sm:text-sm">
+        <!-- Urgency Level -->
+        <div>
+          <label class="block font-bold text-slate-800 mb-1.5">How urgent is your illness?</label>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="cursor-pointer border-2 border-slate-200 rounded-xl p-2.5 text-center flex flex-col items-center hover:border-amber-400 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50">
+              <input type="radio" name="urgency" value="mild" class="hidden">
+              <span class="font-bold text-slate-800 text-xs">Mild</span>
+              <span class="text-[10px] text-slate-500">Can wait a few hours</span>
+            </label>
+            <label class="cursor-pointer border-2 border-amber-300 rounded-xl p-2.5 text-center flex flex-col items-center hover:border-amber-500 has-[:checked]:border-amber-600 has-[:checked]:bg-amber-50">
+              <input type="radio" name="urgency" value="moderate" checked class="hidden">
+              <span class="font-bold text-amber-800 text-xs">Moderate</span>
+              <span class="text-[10px] text-slate-500">Need care today</span>
+            </label>
+            <label class="cursor-pointer border-2 border-rose-200 rounded-xl p-2.5 text-center flex flex-col items-center hover:border-rose-400 has-[:checked]:border-rose-600 has-[:checked]:bg-rose-50">
+              <input type="radio" name="urgency" value="severe" class="hidden">
+              <span class="font-bold text-rose-800 text-xs">High / Severe</span>
+              <span class="text-[10px] text-slate-500">Very weak / high fever</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Symptoms Selector -->
+        <div>
+          <label class="block font-bold text-slate-800 mb-1.5">Select your primary symptoms:</label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs">
+              <input type="checkbox" name="symptom" value="High Fever" class="rounded text-amber-600 focus:ring-amber-500">
+              <span>High Fever</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs">
+              <input type="checkbox" name="symptom" value="Persistent Cough" class="rounded text-amber-600 focus:ring-amber-500">
+              <span>Severe Cough</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs">
+              <input type="checkbox" name="symptom" value="Chills &amp; Body Aches" class="rounded text-amber-600 focus:ring-amber-500">
+              <span>Chills / Body Aches</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs">
+              <input type="checkbox" name="symptom" value="Diarrhea / Vomiting" class="rounded text-amber-600 focus:ring-amber-500">
+              <span>Diarrhea / Vomiting</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs">
+              <input type="checkbox" name="symptom" value="Severe Dizziness" class="rounded text-amber-600 focus:ring-amber-500">
+              <span>Severe Dizziness</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs">
+              <input type="checkbox" name="symptom" value="Sore Throat" class="rounded text-amber-600 focus:ring-amber-500">
+              <span>Sore Throat</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs">
+              <input type="checkbox" name="symptom" value="Breathing Trouble" class="rounded text-amber-600 focus:ring-amber-500">
+              <span>Breathing Trouble</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs">
+              <input type="checkbox" name="symptom" value="Severe Headache" class="rounded text-amber-600 focus:ring-amber-500">
+              <span>Severe Headache</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs">
+              <input type="checkbox" name="symptom" value="Skin Rashes" class="rounded text-amber-600 focus:ring-amber-500">
+              <span>Skin Rashes</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Temperature & Details -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-800 mb-1">Estimated Temp (°C) if taken:</label>
+            <input type="text" id="reqTempInput" placeholder="e.g. 38.5" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-800 mb-1">Preferred Time:</label>
+            <select id="reqPreferredTime" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500">
+              <option value="As soon as possible">As soon as possible</option>
+              <option value="Morning (8:00 AM - 11:30 AM)">Morning (8:00 AM - 11:30 AM)</option>
+              <option value="Afternoon (1:00 PM - 4:00 PM)">Afternoon (1:00 PM - 4:00 PM)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label class="block font-bold text-slate-800 mb-1">Describe how you feel / onset:</label>
+          <textarea id="reqDetails" rows="2" placeholder="e.g. Started shivering last night, high fever, weak legs, roommate is away..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500" required></textarea>
+        </div>
+
+        <!-- Mobility & Companion Status -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <label class="flex items-center space-x-2 text-xs">
+            <input type="checkbox" id="reqCanWalk" class="rounded text-amber-600">
+            <span>Can you walk unassisted?</span>
+          </label>
+          <label class="flex items-center space-x-2 text-xs">
+            <input type="checkbox" id="reqHasCompanion" class="rounded text-amber-600">
+            <span>Is someone with you in the boarding house?</span>
+          </label>
+        </div>
+
+        <!-- Boarding House Location Details -->
+        <div class="space-y-2">
+          <div class="font-bold text-slate-800 flex items-center justify-between">
+            <span>Boarding House Location</span>
+            <span class="text-[10px] text-slate-400 font-normal">Auto-filled from profile</span>
+          </div>
+          <input type="text" id="reqBoardingHouse" placeholder="Boarding House Name &amp; Room #" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500" required>
+          <input type="text" id="reqAddress" placeholder="Street / Purok / Barangay, Villanueva" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500" required>
+          <input type="text" id="reqLandmark" placeholder="Landmarks / Gate Instructions (e.g. Beside 7-Eleven, blue gate)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500">
+          <input type="tel" id="reqPhone" placeholder="Your Active Contact Number" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500" required>
+        </div>
+
+        <!-- Disclaimer Checkbox -->
+        <div class="pt-2">
+          <label class="flex items-start space-x-2 text-[11px] text-slate-600">
+            <input type="checkbox" required class="mt-0.5 rounded text-amber-600">
+            <span>I confirm this is for a non-emergency health checkup. I will provide accurate boarding house details so health personnel can locate me.</span>
+          </label>
+        </div>
+
+        <!-- Request Error Container -->
+        <div id="requestError" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl px-3 py-2.5 font-medium flex items-start gap-2" role="alert">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="requestErrorText"></span>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeRequestModal()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition">Cancel</button>
+          <button type="submit" id="btnSubmitRequest" class="px-5 py-2.5 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold text-xs shadow-md transition flex items-center gap-1.5">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>Submit Request</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 2: CLINICAL RECORD & CERTIFICATE ISSUANCE (HEALTH PERSONNEL) ==================== -->
+  <div id="clinicalModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center">
+            <i data-lucide="stethoscope" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">Clinical Examination &amp; Medical Certificate</h2>
+            <p class="text-xs text-slate-500">Record on-site vitals, diagnosis, and issue verifiable certificate</p>
+          </div>
+        </div>
+        <button onclick="closeClinicalModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Student Mini Profile -->
+      <div class="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <span class="font-bold text-slate-900" id="clinStudentName">Student Name</span>
+          <span class="text-slate-500 ml-1" id="clinStudentId">(ID: 2023-XXXX)</span>
+        </div>
+        <div class="text-slate-600" id="clinBoardingHouse">Villa Rosa Boarding House</div>
+      </div>
+
+      <form id="clinicalForm" onsubmit="submitClinicalRecord(event)" class="mt-4 space-y-4 text-xs sm:text-sm">
+        <input type="hidden" id="clinRequestId">
+
+        <!-- Vital Signs (Objective findings) -->
+        <div>
+          <label class="block font-bold text-slate-900 mb-1.5 flex items-center gap-1.5">
+            <i data-lucide="heart" class="w-4 h-4 text-rose-500"></i>
+            <span>Recorded Vital Signs (On-Site Examination)</span>
+          </label>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+            <div>
+              <span class="text-[10px] text-slate-500 block">BP (mmHg)</span>
+              <input type="text" id="vitalBp" placeholder="120/80" value="120/80" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold" required>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block">Temp (°C)</span>
+              <input type="text" id="vitalTemp" placeholder="38.5" value="38.4" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold" required>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block">Pulse (bpm)</span>
+              <input type="text" id="vitalPulse" placeholder="84" value="86" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold" required>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block">Resp (cpm)</span>
+              <input type="text" id="vitalResp" placeholder="18" value="19" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block">SpO2 (%)</span>
+              <input type="text" id="vitalSpo2" placeholder="98" value="98" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold">
+            </div>
+          </div>
+        </div>
+
+        <!-- Symptoms Observed & Clinical Notes -->
+        <div>
+          <label class="block font-bold text-slate-900 mb-1">Clinical Findings &amp; Physical Observations:</label>
+          <textarea id="clinSymptomsObserved" rows="2" placeholder="e.g. Flushed skin, dry lips, mild pharyngeal redness, clear lung sounds..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500" required></textarea>
+        </div>
+
+        <!-- Clinical Diagnosis -->
+        <div>
+          <label class="block font-bold text-slate-900 mb-1">Official Clinical Diagnosis:</label>
+          <input type="text" id="clinDiagnosis" placeholder="e.g. Acute Upper Respiratory Tract Infection (URTI) with Febrile Episode" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-teal-500" required>
+        </div>
+
+        <!-- Treatment & Care -->
+        <div>
+          <label class="block font-bold text-slate-900 mb-1">Prescription &amp; Medical Recommendations:</label>
+          <textarea id="clinPrescription" rows="3" placeholder="1. Paracetamol 500mg tab every 4-6h for temp > 37.8°C&#10;2. Oral rehydration salts in 1L water&#10;3. High fluid intake and strict bed rest" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500" required></textarea>
+        </div>
+
+        <!-- Academic Excuse & Certificate Duration -->
+        <div class="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-amber-950 text-xs">Medical Excuse Recommendation (For Professors)</span>
+            <label class="flex items-center space-x-1.5 text-xs cursor-pointer font-bold text-amber-900">
+              <input type="checkbox" id="clinIsExcused" checked class="rounded text-amber-600 focus:ring-amber-500">
+              <span>Excuse from classes</span>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div>
+              <span class="text-[10px] text-amber-800 block">Start Date:</span>
+              <input type="date" id="clinExcusedStart" class="w-full px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <span class="text-[10px] text-amber-800 block">End Date:</span>
+              <input type="date" id="clinExcusedEnd" class="w-full px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <span class="text-[10px] text-amber-800 block">Days Excused:</span>
+              <input type="number" id="clinExcusedDays" value="3" min="1" max="14" class="w-full px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-bold">
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Remarks -->
+        <div>
+          <label class="block font-bold text-slate-900 mb-1">Follow-up / Landlord Instructions:</label>
+          <input type="text" id="clinRemarks" placeholder="e.g. Advised boarding house landlord to monitor student; contact clinic if fever persists beyond 48 hours." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500">
+        </div>
+
+        <!-- Clinical Error Container -->
+        <div id="clinicalError" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl px-3 py-2.5 font-medium flex items-start gap-2" role="alert">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="clinicalErrorText"></span>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeClinicalModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition">Cancel</button>
+          <button type="submit" id="btnIssueCert" class="px-5 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5">
+            <i data-lucide="badge-check" class="w-4 h-4 text-ustp-gold"></i>
+            <span>Sign &amp; Issue Medical Certificate</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 3: OFFICIAL PRINTABLE USTP MEDICAL CERTIFICATE ==================== -->
+  <div id="certificateModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm p-4 flex items-center justify-center" onclick="if(event.target === this) closeCertificateModal()">
+    <div class="max-w-2xl w-full">
+      
+      <!-- Top modal action bar (hidden during print) -->
+      <div class="no-print bg-ustp-navy text-white px-4 py-3 rounded-t-2xl flex items-center justify-between border-b border-slate-700">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="award" class="w-5 h-5 text-ustp-goldLight"></i>
+          <span class="font-bold text-sm">Official USTP Medical Certificate</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="printCertificate()" class="bg-ustp-gold hover:bg-amber-500 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Print Certificate</span>
+          </button>
+          <button id="certCloseBtn" onclick="closeCertificateModal()" title="Close certificate preview (Esc)" aria-label="Close Certificate Preview" class="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition border border-slate-600">
+            <i data-lucide="x" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- THE OFFICIAL PRINTABLE CERTIFICATE DOCUMENT -->
+      <div id="certPaper" class="bg-white text-slate-900 p-6 sm:p-10 rounded-b-2xl shadow-2xl border-4 border-double border-ustp-navy relative overflow-hidden cert-watermark">
+        
+        <!-- Seal Watermark in Background -->
+        <div class="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+          <img src="assets/clinic-seal.svg" alt="Seal Watermark" class="w-96 h-96 object-contain">
+        </div>
+
+        <!-- Official Header -->
+        <div class="relative z-10 border-b-2 border-ustp-navy pb-4 text-center">
+          <div class="flex items-center justify-center space-x-3 mb-2">
+            <div class="w-14 h-14 flex-shrink-0">
+              <img src="assets/ustp-logo.svg" alt="USTP Logo" class="w-full h-full object-contain">
+            </div>
+            <div>
+              <p class="text-[10px] tracking-widest uppercase text-slate-600 font-semibold">Republic of the Philippines</p>
+              <h1 class="text-base sm:text-lg font-black text-ustp-navy cert-serif tracking-tight leading-tight">
+                UNIVERSITY OF SCIENCE AND TECHNOLOGY OF SOUTHERN PHILIPPINES
+              </h1>
+              <p class="text-xs font-bold text-ustp-goldDark">VILLANUEVA CAMPUS</p>
+              <p class="text-[11px] font-semibold text-slate-700">Health &amp; Wellness Center • Off-Site Medical Response</p>
+            </div>
+            <div class="w-14 h-14 hidden sm:block flex-shrink-0">
+              <img src="assets/clinic-seal.svg" alt="Clinic Seal" class="w-full h-full object-contain">
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <h2 class="text-xl sm:text-2xl font-black cert-serif tracking-wider text-slate-900 uppercase">
+              Medical Certificate
+            </h2>
+            <div class="flex items-center justify-center space-x-3 text-xs mt-1 font-mono">
+              <span class="text-slate-500">Verification ID: <strong id="certDocCode" class="text-ustp-navy">USTP-VC-98421</strong></span>
+              <span class="text-slate-400">•</span>
+              <span class="text-slate-500">Date Issued: <strong id="certDocDate">October 28, 2026</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Body Content -->
+        <div class="relative z-10 py-6 space-y-4 text-xs sm:text-sm text-slate-800 leading-relaxed">
+          <p class="font-bold cert-serif text-slate-900 tracking-wide uppercase text-[11px]">
+            TO WHOM IT MAY CONCERN:
+          </p>
+
+          <p>
+            This is to certify that <strong id="certDocStudentName" class="text-slate-950 underline decoration-ustp-gold decoration-2">Harvey Lloyd Pagtalunan</strong>, 
+            bearing Student Identification Number <strong id="certDocStudentId">2023-30192</strong>, enrolled in 
+            <strong id="certDocCourse">BS Information Technology - 3rd Year</strong>, residing at 
+            <strong id="certDocAddress">Villa Rosa Boarding House (Rm 4), Purok 2, Looc, Villanueva</strong>, 
+            was physically examined by the USTP Health &amp; Wellness Off-Site Medical Team on 
+            <strong id="certDocExamDate">October 28, 2026</strong> at the said off-campus residence.
+          </p>
+
+          <!-- Examination Findings Box -->
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1.5 text-xs">
+            <div class="flex items-start">
+              <span class="w-36 font-bold text-slate-700 flex-shrink-0">Clinical Diagnosis:</span>
+              <span id="certDocDiagnosis" class="font-extrabold text-slate-950">Acute Upper Respiratory Tract Infection (URTI) with High Febrile Episode</span>
+            </div>
+            <div class="flex items-start">
+              <span class="w-36 font-bold text-slate-700 flex-shrink-0">Examined Vitals:</span>
+              <span id="certDocVitals" class="font-mono text-slate-800">BP: 118/76 mmHg | Temp: 38.6 °C | Pulse: 86 bpm | SpO2: 98%</span>
+            </div>
+            <div class="flex items-start">
+              <span class="w-36 font-bold text-slate-700 flex-shrink-0">Medical Care &amp; Rx:</span>
+              <span id="certDocRecommendations" class="text-slate-800">Paracetamol 500mg, Oral Rehydration Solution, Bed rest in ventilated room.</span>
+            </div>
+          </div>
+
+          <!-- Excuse recommendation -->
+          <div class="border-l-4 border-amber-500 bg-amber-50/60 p-3 rounded-r-lg text-xs">
+            <span class="font-bold text-amber-950 block">Academic Absence Recommendation:</span>
+            <p id="certDocExcused" class="text-amber-900 mt-0.5">
+              Patient is recommended to be excused from academic classes and laboratory sessions from 
+              <strong>October 28, 2026 to October 30, 2026 (3 Days)</strong> due to communicable acute illness requiring rest and isolation.
+            </p>
+          </div>
+
+          <p class="text-[11px] text-slate-600 italic">
+            This certificate is officially issued upon physical off-site examination to justify student medical absence pursuant to USTP Student Affairs &amp; Health Services Guidelines.
+          </p>
+        </div>
+
+        <!-- Signatures & QR Code Section -->
+        <div class="relative z-10 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-6">
+          
+          <!-- Verification QR Code & Cryptographic Stamp -->
+          <div class="flex items-center space-x-3">
+            <div class="w-20 h-20 p-1 bg-white border-2 border-slate-300 rounded-lg shadow-sm flex items-center justify-center flex-shrink-0">
+              <img id="certDocQrCode" src="" alt="Verification QR Code" class="w-full h-full object-contain">
+            </div>
+            <div class="text-[10px] text-slate-500 font-mono space-y-0.5">
+              <div class="font-bold text-emerald-700 flex items-center gap-1">
+                <i data-lucide="check-circle" class="w-3 h-3"></i> VERIFIED AUTHENTIC
+              </div>
+              <div class="text-slate-600">Digital Clinic Seal</div>
+              <div class="text-ustp-navy font-bold">USTP Villanueva</div>
+              <div class="text-[9px] text-slate-400 truncate max-w-[180px]">Hash: <span id="certDocHash">8b7f29c4e019...</span></div>
+            </div>
+          </div>
+
+          <!-- Medical Signatures -->
+          <div class="flex items-center space-x-8 text-center text-xs">
+            <!-- Examining Nurse -->
+            <div>
+              <div class="h-10 flex items-end justify-center font-serif italic text-slate-700 text-sm">
+                <span id="certDocNurseSig" class="border-b border-slate-800 pb-0.5 px-3">Nurse S. Alcantara, RN</span>
+              </div>
+              <div class="font-bold text-slate-900 mt-1" id="certDocIssuerName">Nurse Sarah Alcantara, RN</div>
+              <div class="text-[10px] text-slate-500" id="certDocIssuerLicense">PRC RN-0982341</div>
+              <div class="text-[9px] text-slate-400">Attending Campus Nurse</div>
+            </div>
+
+            <!-- Campus Physician -->
+            <div>
+              <div class="h-10 flex items-end justify-center font-serif italic text-slate-700 text-sm">
+                <span class="border-b border-slate-800 pb-0.5 px-3">Dr. R. Santos, MD</span>
+              </div>
+              <div class="font-bold text-slate-900 mt-1">Dr. Roberto Santos, MD</div>
+              <div class="text-[10px] text-slate-500">PRC MD-0054321</div>
+              <div class="text-[9px] text-slate-400">Campus Medical Officer</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Watermark footer -->
+        <div class="relative z-10 text-center text-[9px] text-slate-400 font-mono mt-4 pt-2 border-t border-slate-100">
+          USTP-VILLANUEVA HEALTH &amp; WELLNESS • SECURE DIGITAL HEALTH CERTIFICATE SYSTEM • ISSUED VIA VITACALL
+        </div>
+
+        <!-- Bottom Action Bar (hidden in print) -->
+        <div class="no-print mt-4 pt-3 border-t border-slate-200 flex items-center justify-between">
+          <span class="text-xs text-slate-500">Press <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-[10px] font-mono">Esc</kbd> to return</span>
+          <button onclick="closeCertificateModal()" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="x" class="w-4 h-4"></i>
+            <span>Close Preview</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

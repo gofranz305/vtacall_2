@@ -1,0 +1,209 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cinzel:wght@600;700;800&display=swap');
+
+:root {
+  --ustp-navy: #101E38;
+  --ustp-navy-light: #1A2B49;
+  --ustp-gold: #EAA100;
+  --ustp-gold-light: #FDB913;
+  --ustp-gold-dark: #C28200;
+  --medical-teal: #0D9488;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #F8FAFC;
+  color: #1E293B;
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Mobile responsive navigation & tap target styles */
+#bottomNav {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+button, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Status stepper animation */
+.pulse-step {
+  box-shadow: 0 0 0 0 rgba(234, 161, 0, 0.7);
+  animation: pulse-ring 1.8s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(234, 161, 0, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(234, 161, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(234, 161, 0, 0);
+  }
+}
+
+.pulse-teal {
+  box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.7);
+  animation: pulse-teal-ring 1.8s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+}
+
+@keyframes pulse-teal-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(13, 148, 136, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0);
+  }
+}
+
+/* Card glass aesthetics */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.header-gradient {
+  background: linear-gradient(135deg, #101E38 0%, #1A2B49 60%, #1E3A8A 100%);
+}
+
+.gold-badge {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 1px solid #FDE68A;
+  color: #B45309;
+}
+
+/* Medical Certificate Print Styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  #appHeader,
+  #bottomNav,
+  #sidebarNav,
+  #emergencyBanner,
+  .no-print {
+    display: none !important;
+  }
+  
+  #certificateModal {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+  
+  #certPaper {
+    box-shadow: none !important;
+    border: 2px solid #0B1B3D !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 30px !important;
+    page-break-inside: avoid;
+  }
+}
+
+/* Certificate Typography */
+.cert-serif {
+  font-family: 'Cinzel', 'Times New Roman', Georgia, serif;
+}
+
+.cert-watermark {
+  background-image: radial-gradient(circle, rgba(16, 30, 56, 0.03) 10%, transparent 10%);
+  background-size: 16px 16px;
+}
+
+/* Loading Skeletons */
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 0.5rem;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Accessible focus visible outlines (WCAG AA compliant) */
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid #1E3A8A;
+  outline-offset: 2px;
+}
+
+/* Responsive touch target sizing */
+@media (max-width: 640px) {
+  button, .mobile-nav-btn {
+    min-height: 38px;
+  }
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS */
+  }
+}
+
+/* Breakpoint optimizations for 375px (mobile), 768px (tablet), and desktop (WCAG AA) */
+@media (max-width: 375px) {
+  body {
+    font-size: 13px;
+  }
+  .max-w-xl, .max-w-2xl {
+    width: 100% !important;
+  }
+  .cert-watermark {
+    padding: 1rem !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .tablet-flex-row {
+    flex-direction: row !important;
+  }
+}
+
+/* High contrast badge tokens (WCAG AA compliant contrast ratio >= 4.5:1) */
+.badge-urgent {
+  background-color: #FEF2F2;
+  color: #991B1B;
+  border: 1px solid #F87171;
+}
+
+.badge-info {
+  background-color: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #93C5FD;
+}
+
+.badge-success {
+  background-color: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #6EE7B7;
+}

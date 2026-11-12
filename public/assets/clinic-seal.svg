@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <circle cx="100" cy="100" r="92" fill="none" stroke="#0B2545" stroke-width="4" stroke-dasharray="6,3"/>
+  <circle cx="100" cy="100" r="82" fill="none" stroke="#C28200" stroke-width="2"/>
+  <circle cx="100" cy="100" r="62" fill="#F8FAFC" stroke="#0B2545" stroke-width="1.5"/>
+  
+  <!-- Text along path -->
+  <path id="sealPathOuter" d="M 15 100 A 85 85 0 1 1 185 100" fill="none"/>
+  <path id="sealPathBottom" d="M 185 100 A 85 85 0 0 1 15 100" fill="none"/>
+  
+  <!-- Caduceus / Rod of Asclepius in center -->
+  <g transform="translate(100, 100) scale(0.7) translate(-100, -100)">
+    <!-- Rod -->
+    <rect x="97" y="45" width="6" height="110" rx="3" fill="#C28200"/>
+    <circle cx="100" cy="45" r="7" fill="#C28200"/>
+    <!-- Snake -->
+    <path d="M 85 135 C 80 120 120 115 115 100 C 110 85 80 80 85 65 C 90 55 105 55 108 60" fill="none" stroke="#0B2545" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="108" cy="60" r="3" fill="#0B2545"/>
+  </g>
+  
+  <text font-family="'Times New Roman', serif" font-size="10.5" font-weight="bold" fill="#0B2545" letter-spacing="1">
+    <textPath href="#sealPathOuter" startOffset="50%" text-anchor="middle">
+      ★ USTP HEALTH &amp; WELLNESS CENTER ★
+    </textPath>
+  </text>
+  <text font-family="'Times New Roman', serif" font-size="9" font-weight="bold" fill="#C28200" letter-spacing="1">
+    <textPath href="#sealPathBottom" startOffset="50%" text-anchor="middle">
+      VILLANUEVA CAMPUS • OFFICIAL
+    </textPath>
+  </text>
+</svg>

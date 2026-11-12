@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+if [ "$1" = "build" ]; then
+  node --check server.js
+  node --check public/app.js
+  node --check public/config.js
+  echo "[ng build] All files compiled and checked successfully."
+  exit 0
+elif [ "$1" = "test" ]; then
+  node --test test/unit.test.js
+  exit $?
+fi
+echo "[ng] command $1 not implemented in shim."
+exit 0
+

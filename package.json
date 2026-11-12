@@ -1,0 +1,28 @@
+{
+  "name": "vitacall",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "bin": {
+    "ng": "./ng"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "ng": "node -e \"const a=process.argv.slice(1); require('child_process').execSync((process.platform==='win32'?'ng.cmd ':'./ng ')+a.join(' '),{stdio:'inherit'})\"",
+    "build": "node --check server.js && node --check public/app.js && node --check public/config.js",
+    "test": "node --test test/unit.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "qrcode": "^1.5.4",
+    "uuid": "^14.0.3"
+  }
+}
