@@ -530,6 +530,34 @@
   ],
   "auditLogs": [
     {
+      "id": "AUD-1794462069102-16",
+      "timestamp": "2026-11-12T05:41:09.102Z",
+      "userId": "usr_student1",
+      "userName": "Harvey Lloyd Pagtalunan",
+      "userRole": "requester",
+      "action": "CERTIFICATE_VIEWED",
+      "targetEntity": "certificate",
+      "targetId": "CERT-USTP-2026-001",
+      "details": "Certificate USTP-VC-98421 viewed by Harvey Lloyd Pagtalunan.",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.146.0 Chrome/150.0.7871.250 Electron/43.8.6 Safari/537.36",
+      "integrityHash": "c8d57ee2c95978477dcda9689f39eed04cb509df25bd4cd8902f885c88cd676d"
+    },
+    {
+      "id": "AUD-1794462051192-517",
+      "timestamp": "2026-11-12T05:40:51.192Z",
+      "userId": "usr_student1",
+      "userName": "Harvey Lloyd Pagtalunan",
+      "userRole": "requester",
+      "action": "USER_LOGIN",
+      "targetEntity": "user",
+      "targetId": "usr_student1",
+      "details": "User logged in successfully via web interface.",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.146.0 Chrome/150.0.7871.250 Electron/43.8.6 Safari/537.36",
+      "integrityHash": "e350f13b9267f3523a01a4bf64e89221bc13ebbe79ce4ae09335169550254694"
+    },
+    {
       "id": "AUD-1794459028886-592",
       "timestamp": "2026-11-12T04:50:28.887Z",
       "userId": "usr_student1",
