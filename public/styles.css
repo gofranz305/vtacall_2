@@ -9,12 +9,17 @@
   --medical-teal: #0D9488;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: #F8FAFC;
   color: #1E293B;
   -webkit-tap-highlight-color: transparent;
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow-x: hidden;
 }
 
 /* Custom scrollbars */
@@ -31,6 +36,15 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
+}
+
+/* Smooth horizontal touch scrolling for tabs and tables */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Mobile responsive navigation & tap target styles */
@@ -94,17 +108,67 @@ button, input, select, textarea {
   color: #B45309;
 }
 
-/* Medical Certificate Print Styles */
+/* Compact Mode & High-Contrast Dashboard Setting modifiers */
+body.compact-mode .p-5,
+body.compact-mode .sm\:p-6,
+body.compact-mode .sm\:p-7 {
+  padding: 0.9rem !important;
+}
+
+body.high-contrast-mode .badge-urgent,
+body.high-contrast-mode .badge-info,
+body.high-contrast-mode .badge-success {
+  border-width: 2px !important;
+  font-weight: 800 !important;
+}
+
+/* Fixed Left Sidebar & Non-Draggable Navigation Rules */
+#sidebarNav {
+  position: sticky;
+  top: 4rem;
+  height: calc(100vh - 4rem);
+  max-height: calc(100vh - 4rem);
+  align-self: flex-start;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+#sidebarNav button,
+#sidebarNav a,
+#sidebarNav img,
+#sidebarNav svg {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Admin Sidebar Active State */
+.admin-nav-item.active {
+  background: linear-gradient(135deg, #101E38 0%, #1E3A8A 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(16, 30, 56, 0.18);
+}
+.admin-nav-item.active i,
+.admin-nav-item.active svg {
+  color: #FDB913 !important;
+}
+
+/* Medical Certificate & Official Report Print Styles */
 @media print {
   body {
     background: white !important;
     color: black !important;
+    padding: 0 !important;
   }
   
   #appHeader,
   #bottomNav,
   #sidebarNav,
+  #adminSidebar,
   #emergencyBanner,
+  #maintenanceModeBanner,
+  #globalAnnouncementsBar,
   .no-print {
     display: none !important;
   }
@@ -124,6 +188,19 @@ button, input, select, textarea {
     max-width: 100% !important;
     padding: 30px !important;
     page-break-inside: avoid;
+  }
+
+  body.printing-report #viewAdminDashboard {
+    display: block !important;
+  }
+  body.printing-report #certificateModal {
+    display: none !important;
+  }
+  body.printing-report #adminReportPreviewContainer {
+    border: 2px solid #101E38 !important;
+    box-shadow: none !important;
+    padding: 24px !important;
+    width: 100% !important;
   }
 }
 
@@ -206,4 +283,194 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background-color: #ECFDF5;
   color: #065F46;
   border: 1px solid #6EE7B7;
+}
+
+/* =========================================================================
+   SMOOTH UI DESIGN, MICRO-INTERACTIONS & PAGE/MODAL TRANSITIONS
+   ========================================================================= */
+
+@keyframes viewFadeSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalBackdropFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes modalCardSpringIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dropdownSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Smooth entrance for views, dashboard tabs, and admin modules */
+.smooth-view-enter,
+#landingView:not(.hidden),
+#authView:not(.hidden),
+#viewStudentDashboard:not(.hidden),
+#viewPersonnelDashboard:not(.hidden),
+#viewAdminDashboard:not(.hidden),
+#viewProfile:not(.hidden),
+#studentTabOverview:not(.hidden),
+#studentTabAnnouncements:not(.hidden),
+#studentTabSettings:not(.hidden),
+#personnelTabQueue:not(.hidden),
+#personnelTabCertificates:not(.hidden),
+#personnelTabAnnouncements:not(.hidden),
+#personnelTabSettings:not(.hidden),
+#adminSectionOverview:not(.hidden),
+#adminSectionUsers:not(.hidden),
+#adminSectionLogs:not(.hidden),
+#adminSectionReports:not(.hidden),
+#adminSectionSecurity:not(.hidden),
+#adminSectionData:not(.hidden),
+#adminSectionAnnouncements:not(.hidden),
+#adminSectionSettings:not(.hidden) {
+  animation: viewFadeSlideIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+/* Smooth modal backdrop & card animations */
+#requestModal:not(.hidden),
+#clinicalModal:not(.hidden),
+#certificateModal:not(.hidden),
+#adminUserModal:not(.hidden),
+#userPermissionsModal:not(.hidden),
+#userDetailModal:not(.hidden),
+#adminResetPasswordModal:not(.hidden),
+#adminRecordModal:not(.hidden),
+#confirmActionModal:not(.hidden),
+#logoutConfirmDialog:not(.hidden) {
+  animation: modalBackdropFadeIn 0.22s ease-out both;
+}
+
+#requestModal:not(.hidden) > div,
+#clinicalModal:not(.hidden) > div,
+#certificateModal:not(.hidden) > div,
+#adminUserModal:not(.hidden) > div,
+#userPermissionsModal:not(.hidden) > div,
+#userDetailModal:not(.hidden) > div,
+#adminResetPasswordModal:not(.hidden) > div,
+#adminRecordModal:not(.hidden) > div,
+#confirmActionModal:not(.hidden) > div,
+#logoutConfirmDialog:not(.hidden) > div {
+  animation: modalCardSpringIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Notification panel dropdown smooth origin animation */
+#notifPanel:not(.hidden) {
+  transform-origin: top right;
+  animation: dropdownSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Global smooth transitions on interactive controls */
+button,
+a,
+input,
+select,
+textarea,
+.nav-btn,
+.student-subtab,
+.personnel-subtab,
+.admin-nav-item,
+.queue-tab {
+  transition:
+    background-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.22s ease;
+}
+
+/* Tactile button press and subtle hover lift */
+button:not(:disabled):active {
+  transform: scale(0.975);
+}
+
+/* Left sidebar navigation items smooth slide-on-hover */
+#sidebarNav .student-subtab:not(.bg-ustp-navy):hover,
+#sidebarNav .personnel-subtab:not(.bg-ustp-navy):hover,
+#sidebarNav .admin-nav-item:not(.active):hover,
+#sidebarNav .nav-btn:not(.bg-ustp-navy):hover {
+  transform: translateX(3px);
+  background-color: #F1F5F9;
+}
+
+#sidebarNav .student-subtab.bg-ustp-navy,
+#sidebarNav .personnel-subtab.bg-ustp-navy,
+#sidebarNav .nav-btn.bg-ustp-navy {
+  background: linear-gradient(135deg, #101E38 0%, #1E3A8A 100%);
+  box-shadow: 0 4px 12px rgba(16, 30, 56, 0.18);
+}
+
+/* Smooth form input focus ring glow */
+input:focus,
+select:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3.5px rgba(30, 58, 138, 0.12);
+  border-color: #1E3A8A;
+}
+
+/* Refined elevation & smooth hover for surface cards */
+main .bg-white.rounded-2xl {
+  box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.04), 0 6px 20px -4px rgba(15, 23, 42, 0.03);
+  transition:
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.26s ease;
+}
+
+#studentCertificatesList > div,
+#personnelQueueList > div,
+#personnelCertificatesList > div {
+  transition:
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.24s ease;
+}
+
+#studentCertificatesList > div:hover,
+#personnelQueueList > div:hover,
+#personnelCertificatesList > div:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -6px rgba(15, 23, 42, 0.09);
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

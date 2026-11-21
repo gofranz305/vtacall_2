@@ -1,0 +1,168 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // HELPER FUNCTIONS FOR ROLE-BASED ACCESS CONTROL (RBAC)
+    // =========================================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAccountActive() {
+      return isAuthenticated() &&
+        (!('status' in getUserData()) || getUserData().status == 'active');
+    }
+
+    function hasRole(role) {
+      return isAccountActive() && getUserData().role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isDoctor() {
+      return hasRole('doctor');
+    }
+
+    function isPersonnel() {
+      return hasRole('personnel');
+    }
+
+    function isStudent() {
+      return hasRole('requester') || hasRole('student');
+    }
+
+    function isOwner(userId) {
+      return isAccountActive() && request.auth.uid == userId;
+    }
+
+    // =========================================================================
+    // 1. USERS COLLECTION
+    // =========================================================================
+    match /users/{userId} {
+      // Users can read their own profile; Personnel can read student profiles; Admin can read all
+      allow read: if isAdmin() || isOwner(userId) || isPersonnel();
+
+      // Only Admin can create accounts with arbitrary roles or delete accounts;
+      // Self-registration only allowed for student ('requester') role
+      allow create: if isAdmin() || (
+        isAuthenticated() &&
+        request.auth.uid == userId &&
+        request.resource.data.role == 'requester'
+      );
+
+      // Users can update their own profile & dashboard settings (except role, status, and permissions);
+      // Admin has full update privileges
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        request.resource.data.role == resource.data.role &&
+        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status) &&
+        (!('permissions' in request.resource.data) || request.resource.data.permissions == resource.data.permissions)
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 2. HEALTH CHECKUP REQUESTS COLLECTION
+    // =========================================================================
+    match /requests/{requestId} {
+      // Students only read their own requests; Nurses only read assigned patients; Doctors and Admin read all
+      allow read: if isAdmin() || isDoctor() ||
+        (isPersonnel() && resource.data.assignedTo.id == request.auth.uid) ||
+        (isStudent() && resource.data.userId == request.auth.uid);
+
+      // Active students and Admin can create requests
+      allow create: if isAdmin() || (isStudent() && request.resource.data.userId == request.auth.uid);
+
+      // Doctor assigns nurses & validates; Nurses update their own assigned requests
+      allow update: if isAdmin() || isDoctor() || (isPersonnel() && resource.data.assignedTo.id == request.auth.uid);
+
+      // Only Admin can delete request records
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 3. CLINICAL RECORDS COLLECTION
+    // =========================================================================
+    match /clinicalRecords/{recordId} {
+      allow read: if isAdmin() || isDoctor() || isPersonnel() || (isStudent() && resource.data.patientId == request.auth.uid);
+      // Nurses can only record vitals/observations (no diagnosis or prescribedMedication); Doctors enter diagnosis & medication
+      allow create, update: if isDoctor() || isAdmin() || (
+        isPersonnel() &&
+        (!('diagnosis' in request.resource.data) || request.resource.data.diagnosis == '') &&
+        (!('prescribedMedication' in request.resource.data) || request.resource.data.prescribedMedication == '')
+      );
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 4. MEDICAL CERTIFICATES COLLECTION
+    // =========================================================================
+    match /certificates/{certId} {
+      // Public verification and Students can ONLY read issued/signed certificates (never unfinished drafts)
+      allow get: if isAdmin() || isDoctor() || isPersonnel() || resource.data.status == 'valid';
+      allow list: if isAdmin() || isDoctor() || isPersonnel() || (isStudent() && resource.data.status != 'draft');
+      // Nurses can create draft certificates; ONLY Doctors can sign and issue valid certificates; Admin can revoke
+      allow create: if isDoctor() || (isPersonnel() && request.resource.data.status == 'draft');
+      allow update: if isDoctor() || (isPersonnel() && request.resource.data.status == 'draft') ||
+        (isAdmin() && request.resource.data.status == 'revoked');
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 5. IMMUTABLE ACTIVITY LOGS & AUDIT TRAIL COLLECTION
+    // =========================================================================
+    match /auditLogs/{logId} {
+      // Only Admin can view audit logs
+      allow read: if isAdmin();
+      // Authenticated users or server can append logs, but logs can NEVER be modified or deleted
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // =========================================================================
+    // 6. SECURITY EVENTS & LOGIN ATTEMPTS COLLECTION
+    // =========================================================================
+    match /securityEvents/{eventId} {
+      allow read, update: if isAdmin();
+      allow create: if true;
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // 7. ANNOUNCEMENTS & NOTIFICATIONS COLLECTIONS
+    // =========================================================================
+    match /announcements/{announcementId} {
+      // Public / authenticated users can read announcements targeted to them
+      allow read: if true;
+      // Only Admin can create, edit, or delete system announcements
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /notifications/{notifId} {
+      allow read, update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin() || isPersonnel();
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 8. SYSTEM SETTINGS & BACKUPS COLLECTIONS
+    // =========================================================================
+    match /systemSettings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /backups/{backupId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
+

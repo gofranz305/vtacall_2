@@ -8,15 +8,15 @@
 
 ## 🌟 Overview
 
-**VitaCall** is a secure, responsive, mobile-first web application designed for college students living in boarding houses and dormitories in Villanueva, Misamis Oriental. When students fall ill with acute conditions (fever, flu, gastroenteritis), they often lack transportation, energy, or companions to visit the campus clinic. 
+**VitaCall** is a secure, responsive, mobile-first web application designed for college students living in boarding houses and dormitories in Villanueva, Misamis Oriental. When students fall ill with acute conditions (fever, flu, gastroenteritis), they often lack transportation, energy, or companions to visit the campus clinic.
 
-VitaCall bridges this gap by allowing students to request on-site boarding house checkups, enabling campus health personnel to triage, travel, examine, and issue **tamper-resistant, verifiable digital medical certificates**.
+VitaCall bridges this gap by allowing students to request on-site boarding house checkups, routing requests through a **Doctor-led Triage & Validation Workflow**, enabling campus nurses to conduct on-site vitals assessments, and empowering the Campus Physician to diagnose, prescribe, digitally sign, and issue **tamper-resistant, verifiable digital medical certificates** — while providing **comprehensive system administration, AES-256 encryption at rest, security monitoring, and real-time analytics**.
 
 ---
 
 ## 🚀 Quick Start
 
-The app is currently running live on port `3000`.
+The app runs on port `3000`.
 
 - **Web Application URL:** [http://localhost:3000](http://localhost:3000)
 
@@ -28,150 +28,48 @@ npm start
 
 ### To run tests and build checks:
 ```bash
-# Run unit test suite
+# Run automated test suite (25/25 passing)
 npm test
-# Or using the ng CLI shim:
-./ng test
 
 # Run build / syntax compilation check
 npm run build
-# Or using the ng CLI shim:
-./ng build
 ```
 
 ---
 
-## ✨ Features & Recent Improvements
+## 🩺 1. Role Model & End-to-End Checkup Workflow
 
-1. **Interactive In-App Notifications**:
-   - Each notification is clickable, marking it as read and navigating to the relevant destination (e.g., student checkup request, issued medical certificates, or personnel triage queue).
-   - Target route stored directly on each notification object (`targetRoute`).
+### 👨‍⚕️ Campus Doctor (`role: 'doctor'` — Dr. Roberto Santos, MD)
+- **Pending Triage Queue & Nurse Assignment**: New student checkup requests arrive in the Doctor's **Pending Triage Queue**, where the doctor reviews symptoms/urgency and assigns the request to an active Campus Nurse (`POST /api/requests/:id/assign`).
+- **Clinical Validation, Diagnosis & Prescription**: Reviews the nurse's on-site checkup findings (vital signs, physical observations, and nurse notes) and enters the **Official Clinical Diagnosis**, **Prescribed Medication**, care recommendations, excused dates, certificate validity date, and physician remarks.
+- **Digital Signature Pad (Draw, Upload & 1-Click Apply)**: The doctor can draw or upload their digital signature on their Profile (`#profSignatureCanvas`) and apply it to certificates with one click (`applySavedDoctorSignatureOneClick()`).
+- **Sign & Send to Student**: Only the doctor can click **Sign & Send to Student** (`POST /api/requests/:id/doctor-validate` / `POST /api/certificates/:id/sign-and-send`), which seals the final certificate with a SHA-256 integrity hash, generates the official QR code, marks the request complete, and sends the notification to the student.
+- **Return to Nurse**: If corrections are needed on the nurse's checkup findings, the doctor can click **Return to Nurse** (`POST /api/requests/:id/return-to-nurse`) with a revision note so the nurse can fix and resubmit the checkup.
 
-2. **Official Medical Certificate Viewer**:
-   - Dedicated Close (`X`) button and `Esc` keyboard shortcut to dismiss the certificate preview and return to the prior screen.
-   - Non-blocking print action with print-optimized CSS layout.
+### 🩺 Campus Nurse / Health Personnel (`role: 'personnel'` — Nurse Sarah Alcantara, RN)
+- **Assigned Patients Only**: Nurses only see their own assigned patients (`GET /api/requests`); they cannot view the pending triage queue or assign requests to themselves.
+- **Strict Step-by-Step Field Workflow**: Nurses must follow the steps in strict order:
+  1. **Assigned** →
+  2. **En Route** →
+  3. **In Progress** →
+  4. **Record On-Site Checkup** (`POST /api/requests/:id/clinical-record`).
+- **Scope of Practice Enforcement (UI & Server)**: During the on-site checkup, nurses can only record **vital signs**, **physical observations**, and **nurse notes**. They are blocked on both the screen and the server (`403 Forbidden` + `NURSE_DIAGNOSIS_REJECTED` audit log) from entering a clinical diagnosis or prescribing medication.
+- **Draft Certificate Creation**: Submitting a checkup creates a **draft certificate** (`status: 'draft'`) and moves the request to **Awaiting Doctor Validation** (`status: 'awaiting_doctor'`). The student is not notified yet and cannot view the draft.
 
-3. **Role-Based Access Control (RBAC) & Audit Protection**:
-   - Students cannot view or access the Security Audit Trail in menus, mobile navigation, or routes.
-   - Server-side `requireRole('admin')` middleware enforces access control on `/api/admin/audit-logs`.
+### 🎓 Student / Requester (`role: 'requester'` — Harvey Lloyd Pagtalunan)
+- **6-Step Progress Tracker & Live Timeline**: The student's active request tracker includes the **Doctor Validation** step (`Request Received` → `Nurse Assigned` → `En Route` → `On-Site Checkup` → `Doctor Validation` → `Completed`) along with a live timestamped timeline.
+- **Instant Notification with Open Certificate Button**: Students only receive the `"Your medical certificate is ready"` notification (featuring an **Open Certificate** button) after the doctor signs and sends it.
+- **Draft Protection & Direct A4 PDF Download**: Students can never view or download unfinished drafts. Once signed and issued, every student certificate includes a **Download PDF** button that generates a complete, high-resolution A4 PDF certificate.
 
-4. **Async Loading States & Simulated Delay**:
-   - Async/await loading states with animated spinners on login, registration, logout, checkup request submissions, and clinical records.
-   - Centralized delay constant `APP_LOADING_DELAY_MS = 1000` (1 second) in `public/config.js` for easy configuration.
-   - Form buttons disabled during requests to prevent duplicate submissions.
-
-5. **Profile Picture Management**:
-   - Upload and change profile photo from the profile view with square cropping (256x256).
-   - Validates file types (JPG, PNG, WebP) and 2 MB size limits.
-   - Displays avatar in header navigation and profile view, falling back to role-colored initials.
-   - Persisted as compressed data URLs in the user profile document.
-
-6. **Accessible Login & Logout Dialogs**:
-   - Accessible confirmation modal on logout with focus management and `Esc` key handling.
-   - Visual toast feedback on successful login ("Welcome back, <name>"), logout ("You have been logged out"), and actions.
-   - Explicit inline error alerts on invalid credentials.
-
-7. **Design Polish & WCAG AA Accessibility**:
-   - Responsive design verified across mobile (375px), tablet (768px), and desktop breakpoints.
-   - High-contrast color tokens and WCAG AA-compliant `:focus-visible` outlines.
-   - Skeleton loading placeholders and smooth transitions.
+### 🛡️ Admin / Clinic Director (`role: 'admin'` — Mr. Franz Cruz)
+- **Full Oversight & Certificate Revocation**: Retains full oversight across all 8 Admin Console modules (Overview & Analytics, User Management, Immutable Audit Logs, Reports & Exports, Security Management, Data & Backups, Announcements, and System Settings) plus **Certificate Revocation** (`POST /api/admin/certificates/:id/revoke`).
+- **Separation of Duties**: Administrators cannot sign or send medical certificates on a doctor's behalf (`403 Forbidden` + `UNAUTHORIZED_SIGN_ATTEMPT` audit log).
 
 ---
 
-## 🔐 Separate Accounts & Authentication
+## 🔒 2. Security, Encryption at Rest & Reliability
 
-VitaCall features individual accounts and session management:
-
-### 1. Account Sign In (`#authView`)
-- Users sign in with their unique USTP email and password.
-- Convenient **Quick Test Account Pills** are provided on the login card for instant testing during thesis defense / code review:
-  - 🎓 **Harvey Lloyd Pagtalunan** (Student): `harvey.pagtalunan@ustp.edu.ph` / `password123`
-  - 🎓 **Franz Clyde Rian Go** (Student): `franz.go@ustp.edu.ph` / `password123`
-  - 🩺 **Nurse Sarah Alcantara, RN** (Health Personnel): `nurse.sarah@ustp.edu.ph` / `password123`
-  - 🛡️ **Dr. Eleanor Reyes, MD** (Clinic Director / Admin): `admin.clinic@ustp.edu.ph` / `password123`
-
-### 2. Student Registration Tab
-- Boarding students can create an account by filling in:
-  - Full Name, USTP Student ID, USTP Email, Password.
-  - Course & Year Level, Contact Phone Number.
-  - Boarding House Name & Room #, Complete Villanueva Street Address, Landmark & Gate Instructions.
-  - Emergency Contact Person & Phone Number.
-
-### 3. Log Out Functionality
-- Clicking the **Log Out** button (available in the desktop header, profile view, and mobile navigation):
-  - Sends a secure request to `POST /api/auth/logout`.
-  - Logs the `USER_LOGOUT` event with timestamp and IP in the Information Assurance audit trail.
-  - Clears the JWT session and cached data from `localStorage`.
-  - Returns to the clean Sign In / Registration portal.
-
----
-
-## 👤 Editable User Profile (`#viewProfile`)
-
-Users have a dedicated **Profile View** to update their details:
-
-- **For Students**:
-  - Full Name
-  - Contact Phone Number
-  - Student ID & Course / Year Level
-  - Boarding House Name & Room #
-  - Complete Street / Purok / Barangay Address
-  - Landmarks & Gate Directions
-  - Emergency Contact Person & Phone Number
-  - Optional Password Update
-- **For Health Personnel & Admin**:
-  - Full Name
-  - Contact Phone Number
-  - Official Designation / Title
-  - PRC License Number
-  - Optional Password Update
-- Updates are saved via `PUT /api/users/profile`, persisted to disk, and logged in the system audit trail (`PROFILE_UPDATED`).
-
----
-
-## 📱 Fully Responsive Web Design
-
-- **Mobile Phones (360px - 600px)**:
-  - Mobile bottom navigation bar (Home, Requests, (+) FAB Checkup, Profile, Admin).
-  - Touch-friendly tap targets and collapsible cards.
-  - Safe area inset padding for notch displays.
-- **Tablets & Laptops (768px - 1024px)**:
-  - Adaptive grids for triage queue and clinical intake.
-  - Multi-column symptom selectors and vital sign inputs.
-- **Desktop (1024px+)**:
-  - Header navigation links with user avatar, name, and role pill.
-  - Side-by-side surveillance analytics, boarding house density maps, and audit tables.
-
----
-
-## 📄 Official Printable USTP Medical Certificate
-
-- Authentic USTP Villanueva crest, Republic of the Philippines letterhead, and official clinic watermark seal.
-- Comprehensive examination report, clinical diagnosis, vital signs summary, and excused absence recommendation for academic consideration.
-- Attending nurse and campus physician signature lines with PRC license numbers.
-- Print-optimized CSS (`@media print`) that formats the certificate for physical printing or saving as a PDF.
-- *(Note: The separate "Verify Slip" navigation tab has been removed as requested, keeping verification integrated within issued certificates).*
-
----
-
-## 🛠️ Codebase Structure
-
-```
-vitacall/
-├── data/
-│   └── vitacall-db.json          # Persistent JSON database with pre-seeded USTP data
-├── public/
-│   ├── assets/
-│   │   ├── ustp-logo.svg         # Official USTP Villanueva emblem
-│   │   └── clinic-seal.svg       # Health & Wellness Center official seal
-│   ├── app.js                    # Reactive state, auth, profile & workflows
-│   ├── config.js                 # Shared frontend configuration & delay constants
-│   ├── index.html                # Responsive mobile-first UI & accessible modals
-│   └── styles.css                # Tailwind styling, skeletons, WCAG tokens & print CSS
-├── test/
-│   └── unit.test.js              # Unit tests for all 8 task capabilities
-├── package.json                  # Dependencies & test/build scripts
-├── README.md                     # Documentation
-├── server.js                     # Express REST API, auth, crypto & audit engine
-└── ng.cmd / ng                   # Cross-platform CLI shims for ng build and ng test
-```
+- **AES-256-GCM Encryption at Rest**: Sensitive medical fields — including `diagnosis`, `prescribedMedication`, `prescriptionAndCare`, `nurseNotes`, `symptomsObserved`, and `doctorSignature` — are encrypted at rest (`ENC:v1:...`) in `data/vitacall-db.json` using AES-256-GCM.
+- **Privacy-Preserving Public QR Verification (`GET /api/verify-certificate/:code`)**: Public verification only succeeds for doctor-signed, valid certificates (rejecting drafts and revoked certificates) and **never** exposes clinical diagnosis, prescribed medication, vitals, or nurse notes.
+- **Tamper-Evident Audit Trail**: Every major action (`TRIAGE_ASSIGNED`, `UNAUTHORIZED_NURSE_ASSIGN_ATTEMPT`, `NURSE_DIAGNOSIS_REJECTED`, `DRAFT_CERTIFICATE_CREATED`, `DOCTOR_VALIDATED_CHECKUP`, `CERTIFICATE_SIGNED_AND_SENT`, `CHECKUP_RETURNED_TO_NURSE`, `DOCTOR_SIGNATURE_UPDATED`, `CERTIFICATE_REVOKED`, `UNAUTHORIZED_SIGN_ATTEMPT`) is recorded with a SHA-256 integrity hash in the immutable audit trail.
+- **Automated Test Suite**: 25/25 unit and integration tests in `test/unit.test.js` verifying all role rules, workflow transitions, encryption at rest, and security boundaries.

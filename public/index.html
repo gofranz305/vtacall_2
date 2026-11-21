@@ -36,6 +36,8 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- html2pdf.js for Direct Certificate PDF Download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col pb-20 md:pb-0">
@@ -44,52 +46,73 @@
   <aside aria-label="Emergency warning" id="emergencyBanner" class="bg-amber-500 text-slate-950 px-3 sm:px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-sm z-40">
     <div class="flex items-center space-x-2 truncate">
       <span class="flex h-2.5 w-2.5 rounded-full bg-red-600 animate-ping flex-shrink-0"></span>
-      <span class="truncate">⚠️ <strong>CAMPUS HEALTH ADVISORY:</strong> VitaCall is for non-emergency boarding house checkups. In life-threatening emergencies, call Villanueva MDRRMO (0917-882-8911) or 911 immediately.</span>
+      <span class="truncate">⚠️ <strong>CAMPUS HEALTH ADVISORY:</strong> <span id="bannerSystemName">VitaCall</span> is for non-emergency boarding house checkups. In life-threatening emergencies, call Villanueva MDRRMO (<span id="bannerEmergencyHotline">0917-882-8911</span>) or 911 immediately.</span>
     </div>
     <div class="hidden sm:flex items-center space-x-3 text-xs pl-3 flex-shrink-0">
       <a href="tel:911" class="bg-red-700 text-white px-2.5 py-1 rounded-full hover:bg-red-800 transition font-bold flex items-center gap-1">
         <i data-lucide="phone-call" class="w-3.5 h-3.5"></i> Call 911
       </a>
-      <span class="text-amber-950 font-medium">Clinic Hotline: 0920-111-8899</span>
+      <span class="text-amber-950 font-medium">Clinic Hotline: <span id="bannerClinicHotline">0920-111-8899</span></span>
     </div>
   </aside>
 
+  <!-- MAINTENANCE MODE BANNER (Visible when maintenanceMode is active) -->
+  <div id="maintenanceModeBanner" class="hidden bg-rose-700 text-white px-4 py-2 text-xs font-bold flex items-center justify-center gap-2 shadow-sm z-40">
+    <i data-lucide="wrench" class="w-4 h-4 text-amber-300 flex-shrink-0"></i>
+    <span id="maintenanceModeBannerText">SYSTEM MAINTENANCE MODE ACTIVE: Non-administrator actions are temporarily restricted.</span>
+  </div>
+
   <!-- MAIN APP HEADER -->
-  <header id="appHeader" class="bg-ustp-navy text-white sticky top-0 z-30 shadow-md">
+  <header id="appHeader" class="bg-ustp-navy text-white sticky top-0 z-40 shadow-md border-b border-slate-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <!-- Logo & Branding -->
-      <div class="flex items-center space-x-3 cursor-pointer" onclick="handleBrandClick()">
-        <div class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-sm flex-shrink-0">
-          <img src="assets/ustp-logo.svg" alt="USTP Logo" class="w-full h-full object-contain">
-        </div>
-        <div>
-          <div class="flex items-center space-x-2">
-            <span class="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center">
-              Vita<span class="text-ustp-goldLight">Call</span>
-            </span>
-            <span class="text-[10px] bg-ustp-gold/20 text-ustp-goldLight border border-ustp-gold/40 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
-              Villanueva
-            </span>
+      <!-- Left: Mobile Sidebar Toggle (only on logged-in dashboards) + Logo & Branding -->
+      <div class="flex items-center space-x-3">
+        <button id="mobileSidebarToggleBtn" type="button" onclick="toggleLeftSidebar()" class="hidden p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" aria-label="Toggle left navigation">
+          <i data-lucide="panel-left" class="w-5 h-5 text-ustp-goldLight"></i>
+        </button>
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="handleBrandClick()">
+          <div class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-sm flex-shrink-0">
+            <img id="brandLogoImg" src="assets/ustp-logo.svg" alt="USTP Logo" class="w-full h-full object-contain">
           </div>
-          <p class="text-[10px] text-slate-300 hidden sm:block">Mobile Health Request & Monitoring</p>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span id="brandNameDisplay" class="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center">
+                Vita<span class="text-ustp-goldLight">Call</span>
+              </span>
+              <span id="brandCampusBadge" class="text-[10px] bg-ustp-gold/20 text-ustp-goldLight border border-ustp-gold/40 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
+                Villanueva
+              </span>
+            </div>
+            <p id="brandSubtitleDisplay" class="text-[10px] text-slate-300 hidden sm:block">Mobile Health Request &amp; Monitoring</p>
+          </div>
         </div>
       </div>
 
-      <!-- Navigation & Auth Controls -->
+      <!-- Right: Top Navigation (for Landing Page) & Active User Controls -->
       <div class="flex items-center space-x-2 sm:space-x-3">
+
+        <!-- TOP NAVIGATION FOR LANDING PAGE (Shown only when on Landing / Auth view) -->
+        <nav id="landingTopNav" class="flex items-center space-x-1 sm:space-x-2 text-xs font-semibold">
+          <button onclick="navigate('landing')" class="text-xs font-semibold text-slate-200 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition hidden sm:inline-flex items-center gap-1">
+            <i data-lucide="home" class="w-3.5 h-3.5"></i>
+            <span>Home</span>
+          </button>
+          <button onclick="navigate('landing'); setTimeout(()=>document.getElementById('landingVerifyCodeInput')?.focus(), 100);" class="text-xs font-semibold text-slate-200 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition hidden md:inline-flex items-center gap-1">
+            <i data-lucide="file-check-2" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>Verify Slip</span>
+          </button>
+        </nav>
         
         <!-- LOGGED-IN CONTROLS -->
         <div id="headerLoggedInControls" class="hidden flex items-center space-x-2 sm:space-x-3">
-          
-          <!-- Desktop Nav Links -->
-          <nav class="hidden md:flex items-center space-x-1 text-xs font-semibold mr-1">
-            <button onclick="navigate('dashboard')" class="nav-btn px-3 py-1.5 rounded-lg hover:bg-slate-800 transition text-slate-200" data-view="dashboard">Dashboard</button>
-            <button onclick="navigate('profile')" class="nav-btn px-3 py-1.5 rounded-lg hover:bg-slate-800 transition text-slate-200" data-view="profile">Profile</button>
-          </nav>
+          <button id="headerBackToDashboardBtn" onclick="navigate('dashboard')" class="hidden text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition items-center gap-1">
+            <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+            <span>Dashboard</span>
+          </button>
 
           <!-- In-App Notification Bell -->
           <div class="relative">
-            <button id="notifBellBtn" onclick="toggleNotifications()" class="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition relative">
+            <button id="notifBellBtn" onclick="toggleNotifications()" class="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition relative" aria-label="Notifications">
               <i data-lucide="bell" class="w-5 h-5"></i>
               <span id="notifBadge" class="hidden absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-ustp-navy"></span>
             </button>
@@ -98,7 +121,10 @@
             <div id="notifPanel" class="hidden absolute right-0 mt-2 w-72 sm:w-80 bg-white text-slate-800 rounded-xl shadow-2xl border border-slate-200 z-50 max-h-96 overflow-y-auto">
               <div class="p-3 border-b border-slate-100 flex items-center justify-between">
                 <span class="font-bold text-sm text-slate-800">In-App Notifications</span>
-                <span id="notifCount" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">0 new</span>
+                <div class="flex items-center gap-2">
+                  <span id="notifCount" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">0 new</span>
+                  <button onclick="markAllNotificationsRead()" class="text-[10px] text-ustp-blue hover:underline font-semibold">Mark all read</button>
+                </div>
               </div>
               <div id="notifList" class="divide-y divide-slate-100 text-xs">
                 <!-- Injected via JS -->
@@ -124,10 +150,14 @@
           </button>
         </div>
 
-        <!-- LOGGED-OUT CONTROLS -->
+        <!-- LOGGED-OUT CONTROLS (Top Navigation on Landing Page) -->
         <div id="headerLoggedOutControls" class="flex items-center space-x-2">
-          <button onclick="switchAuthTab('login')" class="text-xs font-bold bg-ustp-gold text-slate-950 px-3.5 py-1.5 rounded-lg hover:bg-amber-400 transition shadow-sm">
-            Sign In
+          <button onclick="goToAuth('register')" class="text-xs font-semibold text-ustp-goldLight hover:text-white border border-ustp-gold/40 px-3 py-1.5 rounded-lg hover:bg-slate-800 transition hidden sm:inline-block">
+            Student Register
+          </button>
+          <button onclick="goToAuth('login')" class="text-xs font-bold bg-ustp-gold text-slate-950 px-3.5 py-1.5 rounded-lg hover:bg-amber-400 transition shadow-sm flex items-center gap-1">
+            <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+            <span>Sign In</span>
           </button>
         </div>
 
@@ -135,11 +165,472 @@
     </div>
   </header>
 
-  <!-- CONTENT CONTAINER -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+  <!-- MOBILE SIDEBAR BACKDROP -->
+  <div id="leftSidebarBackdrop" onclick="closeLeftSidebar()" class="hidden md:hidden fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-30"></div>
 
-    <!-- ==================== VIEW 0: AUTHENTICATION (SEPARATE ACCOUNTS) ==================== -->
-    <section id="authView" class="max-w-xl mx-auto py-6 sm:py-10">
+  <!-- WORKSPACE WRAPPER: LEFT SIDEBAR NAVIGATION (Dashboards only) + RIGHT MAIN CONTENT -->
+  <div class="flex-1 flex items-start w-full relative">
+
+    <!-- ==================== PERSISTENT FIXED LEFT SIDEBAR NAVIGATION (HIDDEN ON LANDING PAGE) ==================== -->
+    <aside id="sidebarNav" aria-label="Main Left Navigation" draggable="false" class="no-print hidden flex-col justify-between w-64 lg:w-68 flex-shrink-0 bg-white border-r border-slate-200 shadow-sm self-start sticky top-16 h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] z-30 p-3.5 overflow-hidden select-none">
+      
+      <!-- Top Fixed User Summary Card in Left Sidebar -->
+      <div id="sidebarUserCard" class="hidden flex-shrink-0 mb-3 p-3 rounded-2xl bg-gradient-to-br from-ustp-navy to-ustp-navyLight text-white shadow-sm">
+        <div class="flex items-center space-x-3">
+          <div id="sidebarUserAvatar" class="w-10 h-10 rounded-xl bg-ustp-gold text-slate-950 font-black flex items-center justify-center text-sm flex-shrink-0">
+            U
+          </div>
+          <div class="min-w-0 flex-1">
+            <div id="sidebarUserName" class="font-extrabold text-xs text-white truncate">User Name</div>
+            <div id="sidebarUserEmail" class="text-[10px] text-slate-300 truncate">user@ustp.edu.ph</div>
+            <span id="sidebarUserRoleBadge" class="inline-block mt-1 text-[9px] bg-ustp-gold/20 text-ustp-goldLight border border-ustp-gold/40 px-2 py-0.5 rounded-full font-bold uppercase">
+              Student
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Middle Scrollable Navigation Area (Stays locked in viewport) -->
+      <div id="sidebarScrollArea" class="flex-1 overflow-y-auto overscroll-contain space-y-4 pr-0.5">
+        <!-- 1. LOGGED-OUT LEFT NAVIGATION -->
+        <div id="sidebarLoggedOutNav" class="hidden space-y-1">
+          <div class="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Public Navigation</div>
+          <button onclick="navigate('landing'); closeLeftSidebar();" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition text-slate-700 hover:bg-slate-100" data-view="landing">
+            <i data-lucide="home" class="w-4 h-4 text-ustp-navy"></i>
+            <span>Landing Overview</span>
+          </button>
+          <button onclick="goToAuth('login'); closeLeftSidebar();" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition text-slate-700 hover:bg-slate-100" data-view="auth">
+            <i data-lucide="log-in" class="w-4 h-4 text-amber-600"></i>
+            <span>Sign In to Account</span>
+          </button>
+        </div>
+
+        <!-- 2. STUDENT LEFT NAVIGATION MENU (Shown when role === 'requester') -->
+        <div id="studentLeftNav" class="hidden space-y-1">
+          <div class="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Student Dashboard</div>
+          <button onclick="navigate('dashboard'); switchStudentTab('overview'); closeLeftSidebar();" id="studentTabBtnOverview" class="student-subtab w-full text-left px-3.5 py-2.5 rounded-xl bg-ustp-navy text-white text-xs font-bold flex items-center gap-2.5 transition">
+            <i data-lucide="layout-dashboard" class="w-4 h-4 text-ustp-goldLight flex-shrink-0"></i>
+            <span>Checkups &amp; Overview</span>
+          </button>
+          <button onclick="openRequestModal(); closeLeftSidebar();" class="w-full text-left px-3.5 py-2.5 rounded-xl text-slate-700 hover:bg-amber-50 hover:text-amber-900 text-xs font-bold flex items-center gap-2.5 transition">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+            <span>Request Checkup Now</span>
+          </button>
+          <button onclick="switchStudentTab('overview'); navigate('certificates'); closeLeftSidebar();" class="w-full text-left px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-bold flex items-center gap-2.5 transition">
+            <i data-lucide="file-badge" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+            <span>My Medical Certificates</span>
+          </button>
+          <button onclick="navigate('dashboard'); switchStudentTab('announcements'); closeLeftSidebar();" id="studentTabBtnAnnouncements" class="student-subtab w-full text-left px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-bold flex items-center gap-2.5 transition">
+            <i data-lucide="megaphone" class="w-4 h-4 flex-shrink-0"></i>
+            <span>Health Announcements</span>
+          </button>
+          <button onclick="navigate('dashboard'); switchStudentTab('settings'); closeLeftSidebar();" id="studentTabBtnSettings" class="student-subtab w-full text-left px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-bold flex items-center gap-2.5 transition">
+            <i data-lucide="settings" class="w-4 h-4 flex-shrink-0"></i>
+            <span>Dashboard Settings</span>
+          </button>
+        </div>
+
+        <!-- 3. PERSONNEL LEFT NAVIGATION MENU (Shown when role === 'personnel') -->
+        <div id="personnelLeftNav" class="hidden space-y-1">
+          <div class="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Health Personnel Portal</div>
+          <button onclick="navigate('dashboard'); switchPersonnelTab('queue'); closeLeftSidebar();" id="personnelTabBtnQueue" class="personnel-subtab w-full text-left px-3.5 py-2.5 rounded-xl bg-ustp-navy text-white text-xs font-bold flex items-center gap-2.5 transition">
+            <i data-lucide="clipboard-list" class="w-4 h-4 text-ustp-goldLight flex-shrink-0"></i>
+            <span>Triage &amp; Dispatch Queue</span>
+          </button>
+          <button onclick="navigate('dashboard'); switchPersonnelTab('certificates'); closeLeftSidebar();" id="personnelTabBtnCertificates" class="personnel-subtab w-full text-left px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-bold flex items-center gap-2.5 transition">
+            <i data-lucide="file-badge" class="w-4 h-4 flex-shrink-0"></i>
+            <span>Issued Certificates</span>
+          </button>
+          <button onclick="navigate('dashboard'); switchPersonnelTab('announcements'); closeLeftSidebar();" id="personnelTabBtnAnnouncements" class="personnel-subtab w-full text-left px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-bold flex items-center gap-2.5 transition">
+            <i data-lucide="megaphone" class="w-4 h-4 flex-shrink-0"></i>
+            <span>Clinic Announcements</span>
+          </button>
+          <button onclick="navigate('dashboard'); switchPersonnelTab('settings'); closeLeftSidebar();" id="personnelTabBtnSettings" class="personnel-subtab w-full text-left px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-bold flex items-center gap-2.5 transition">
+            <i data-lucide="settings" class="w-4 h-4 flex-shrink-0"></i>
+            <span>Responder Settings</span>
+          </button>
+        </div>
+
+        <!-- 4. ADMIN CONSOLE LEFT NAVIGATION MENU (Shown when role === 'admin') -->
+        <div id="adminSidebar" class="hidden space-y-1">
+          <div class="flex items-center justify-between px-3 py-1">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Admin Console</span>
+            <span class="text-[9px] font-mono bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">v2.4</span>
+          </div>
+          <nav aria-label="Admin sections" class="flex flex-col gap-1 text-xs font-bold">
+            <button onclick="navigate('dashboard'); switchAdminSection('overview'); closeLeftSidebar();" data-admin-nav="overview" class="admin-nav-item active flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 text-slate-500 flex-shrink-0"></i>
+                <span>Overview &amp; Analytics</span>
+              </span>
+            </button>
+            <button onclick="navigate('dashboard'); switchAdminSection('users'); closeLeftSidebar();" data-admin-nav="users" class="admin-nav-item flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i data-lucide="users" class="w-4 h-4 text-slate-500 flex-shrink-0"></i>
+                <span>User Management</span>
+              </span>
+              <span id="adminNavUsersCount" class="ml-2 text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-mono">0</span>
+            </button>
+            <button onclick="navigate('dashboard'); switchAdminSection('logs'); closeLeftSidebar();" data-admin-nav="logs" class="admin-nav-item flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i data-lucide="scroll-text" class="w-4 h-4 text-slate-500 flex-shrink-0"></i>
+                <span>Activity &amp; Audit Logs</span>
+              </span>
+              <span id="adminNavLogsCount" class="ml-2 text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-mono">0</span>
+            </button>
+            <button onclick="navigate('dashboard'); switchAdminSection('reports'); closeLeftSidebar();" data-admin-nav="reports" class="admin-nav-item flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-slate-500 flex-shrink-0"></i>
+                <span>Reports &amp; Exports</span>
+              </span>
+            </button>
+            <button onclick="navigate('dashboard'); switchAdminSection('security'); closeLeftSidebar();" data-admin-nav="security" class="admin-nav-item flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-slate-500 flex-shrink-0"></i>
+                <span>Security Management</span>
+              </span>
+              <span id="adminNavSecurityBadge" class="ml-2 text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-mono">0</span>
+            </button>
+            <button onclick="navigate('dashboard'); switchAdminSection('data'); closeLeftSidebar();" data-admin-nav="data" class="admin-nav-item flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i data-lucide="database" class="w-4 h-4 text-slate-500 flex-shrink-0"></i>
+                <span>Data &amp; Backups</span>
+              </span>
+            </button>
+            <button onclick="navigate('dashboard'); switchAdminSection('announcements'); closeLeftSidebar();" data-admin-nav="announcements" class="admin-nav-item flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i data-lucide="megaphone" class="w-4 h-4 text-slate-500 flex-shrink-0"></i>
+                <span>Announcements</span>
+              </span>
+              <span id="adminNavAnnCount" class="ml-2 text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-mono">0</span>
+            </button>
+            <button onclick="navigate('dashboard'); switchAdminSection('settings'); closeLeftSidebar();" data-admin-nav="settings" class="admin-nav-item flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i data-lucide="settings" class="w-4 h-4 text-slate-500 flex-shrink-0"></i>
+                <span>System Settings</span>
+              </span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Bottom Pinned Account & Sign Out Footer in Left Sidebar -->
+      <div class="flex-shrink-0 pt-3 mt-2 border-t border-slate-200 bg-white space-y-1.5">
+        <div id="sidebarCommonAccountNav" class="hidden space-y-1">
+          <div class="px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Account</div>
+          <button onclick="navigate('profile'); closeLeftSidebar();" class="nav-btn w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center gap-2.5 transition" data-view="profile">
+            <i data-lucide="user-cog" class="w-4 h-4 text-indigo-600 flex-shrink-0"></i>
+            <span>My Profile</span>
+          </button>
+        </div>
+        <button id="sidebarLogoutBtn" onclick="logout()" class="hidden w-full py-2.5 px-3.5 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white font-bold text-xs flex items-center justify-center gap-2 border border-rose-200 transition">
+          <i data-lucide="log-out" class="w-4 h-4 flex-shrink-0"></i>
+          <span>Sign Out of Account</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- CONTENT CONTAINER -->
+    <main class="flex-1 min-w-0 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- GLOBAL SYSTEM ANNOUNCEMENTS BAR (Shown inside logged-in dashboards when announcements exist) -->
+    <div id="globalAnnouncementsBar" class="hidden mb-5 space-y-2 no-print"></div>
+
+    <!-- ==================== VIEW 0A: PUBLIC LANDING PAGE ==================== -->
+    <section id="landingView" class="space-y-10 pb-8">
+      <!-- Hero Section -->
+      <div class="bg-gradient-to-br from-ustp-navy via-ustp-navyLight to-blue-950 text-white rounded-3xl p-6 sm:p-10 lg:p-12 shadow-2xl relative overflow-hidden border border-slate-800">
+        <div class="absolute -right-16 -bottom-16 w-80 h-80 opacity-10 pointer-events-none">
+          <img src="assets/ustp-logo.svg" alt="USTP Watermark" class="w-full h-full object-contain">
+        </div>
+
+        <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <!-- Hero Left Column -->
+          <div class="lg:col-span-7 space-y-5">
+            <div class="inline-flex flex-wrap items-center gap-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full text-xs">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="font-bold text-ustp-goldLight uppercase tracking-wider">USTP Villanueva Campus</span>
+              <span class="text-slate-400">•</span>
+              <span class="text-slate-200">Health &amp; Wellness Center Response System</span>
+            </div>
+
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
+              Mobile-Accessible <span class="text-ustp-goldLight">Boarding House</span> Health Request &amp; Monitoring
+            </h1>
+
+            <p class="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl">
+              Designed for USTP Villanueva boarding and dormitory students. Request on-site clinical checkups when you are too ill to travel, track campus health responders in real time, and receive cryptographically signed, QR-verifiable digital medical certificates.
+            </p>
+
+            <div class="flex flex-wrap items-center gap-3 pt-2">
+              <button onclick="goToAuth('login')" class="bg-gradient-to-r from-amber-500 to-ustp-gold hover:from-amber-400 hover:to-ustp-goldLight text-slate-950 font-extrabold px-6 py-3.5 rounded-xl shadow-lg hover:shadow-xl transition flex items-center gap-2 text-sm">
+                <i data-lucide="log-in" class="w-4 h-4"></i>
+                <span>Sign In to Portal</span>
+              </button>
+              <button onclick="goToAuth('register')" class="bg-white/10 hover:bg-white/20 text-white border border-white/25 font-bold px-5 py-3.5 rounded-xl transition flex items-center gap-2 text-sm">
+                <i data-lucide="user-plus" class="w-4 h-4 text-ustp-goldLight"></i>
+                <span>Register as Boarding Student</span>
+              </button>
+              <div id="landingReturnDashboardWrap" class="hidden">
+                <button onclick="navigate('dashboard')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3.5 rounded-xl shadow-md transition flex items-center gap-2 text-sm">
+                  <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                  <span>Go to My Dashboard</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Role Pills -->
+            <div class="pt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300 border-t border-slate-800/80">
+              <div class="flex items-center gap-1.5">
+                <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+                <span>Firebase &amp; RBAC Protected</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <i data-lucide="qr-code" class="w-4 h-4 text-ustp-goldLight"></i>
+                <span>SHA-256 Tamper-Proof Slips</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <i data-lucide="clock" class="w-4 h-4 text-teal-400"></i>
+                <span id="landingHoursDisplay">Mon-Sat • 7:00 AM - 7:00 PM</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hero Right Column: Instant Public Medical Certificate Verifier -->
+          <div class="lg:col-span-5">
+            <div class="bg-white text-slate-900 rounded-2xl p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-10 h-10 rounded-xl bg-ustp-navy text-ustp-goldLight flex items-center justify-center shadow-sm">
+                    <i data-lucide="file-check-2" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h2 class="font-extrabold text-slate-900 text-sm sm:text-base">Instant Certificate Verification</h2>
+                    <p class="text-[11px] text-slate-500">For Faculty, Deans &amp; Academic Verifiers</p>
+                  </div>
+                </div>
+                <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Public Tool</span>
+              </div>
+
+              <form onsubmit="verifyPublicCertificate(event)" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Enter Verification Code or Certificate ID</label>
+                  <div class="flex gap-2">
+                    <input type="text" id="landingVerifyCodeInput" placeholder="e.g. USTP-VC-98421" class="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono uppercase focus:ring-2 focus:ring-ustp-navy focus:bg-white" required>
+                    <button type="submit" id="btnVerifyPublicCert" class="bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 flex-shrink-0">
+                      <i data-lucide="search-check" class="w-4 h-4 text-ustp-goldLight"></i>
+                      <span>Verify</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Try sample code:</span>
+                  <button type="button" onclick="document.getElementById('landingVerifyCodeInput').value='USTP-VC-98421'; verifyPublicCertificate(event);" class="font-mono font-bold text-ustp-blue hover:underline">USTP-VC-98421</button>
+                </div>
+              </form>
+
+              <!-- Verification Result Box -->
+              <div id="landingVerifyResult" class="hidden rounded-xl p-3.5 text-xs border"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Campus Health Statistics Ribbon -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex items-center space-x-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900" id="landingStatStudents">4</div>
+            <div class="text-xs text-slate-500 font-medium">Registered Students</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex items-center space-x-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="building-2" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900" id="landingStatDorms">5</div>
+            <div class="text-xs text-slate-500 font-medium">Boarding Houses Covered</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex items-center space-x-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="stethoscope" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900" id="landingStatCheckups">7</div>
+            <div class="text-xs text-slate-500 font-medium">Checkup Requests Logged</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex items-center space-x-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="file-badge" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900" id="landingStatCerts">2</div>
+            <div class="text-xs text-slate-500 font-medium">Verifiable Certificates</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Public Campus Health Announcements (Dynamic from Database) -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+              <i data-lucide="megaphone" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="font-extrabold text-slate-900 text-base sm:text-lg">Campus Health Advisories &amp; Announcements</h2>
+              <p class="text-xs text-slate-500">Official bulletins from the USTP Villanueva Health &amp; Wellness Center</p>
+            </div>
+          </div>
+          <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">Live Feed</span>
+        </div>
+        <div id="landingAnnouncementsList" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Core System Architecture & Capabilities -->
+      <div class="space-y-4">
+        <div class="text-center max-w-2xl mx-auto">
+          <span class="text-xs font-extrabold uppercase tracking-widest text-ustp-goldDark">Comprehensive Campus Healthcare</span>
+          <h2 class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">Built for Boarding Students, Nurses &amp; Administrators</h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-1">Bridging the distance between off-campus Villanueva dormitories and the USTP Health &amp; Wellness Center.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <!-- Student Card -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-4">
+            <div class="space-y-3">
+              <div class="w-11 h-11 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                <i data-lucide="heart-handshake" class="w-6 h-6"></i>
+              </div>
+              <h3 class="font-extrabold text-slate-900 text-base">Student Requester Portal</h3>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Submit symptom reports with your exact boarding house room and landmark. Track your assigned campus nurse in 5 live stages and download official medical excuse certificates.
+              </p>
+              <ul class="text-xs text-slate-600 space-y-1.5 pt-1">
+                <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Boarding house landmark routing</li>
+                <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Custom notification &amp; privacy settings</li>
+                <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Printable QR medical excuse slips</li>
+              </ul>
+            </div>
+            <button onclick="goToAuth('login')" class="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs border border-amber-200 transition">
+              Open Student Portal →
+            </button>
+          </div>
+
+          <!-- Personnel Card -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-4">
+            <div class="space-y-3">
+              <div class="w-11 h-11 rounded-2xl bg-teal-100 text-teal-800 flex items-center justify-center">
+                <i data-lucide="activity" class="w-6 h-6"></i>
+              </div>
+              <h3 class="font-extrabold text-slate-900 text-base">Health Personnel Triage</h3>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Prioritize severe boarding house cases, update dispatch statuses (Assigned, En Route, On-Site), record objective vital signs, and issue signed certificates.
+              </p>
+              <ul class="text-xs text-slate-600 space-y-1.5 pt-1">
+                <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Priority triage queue &amp; dorm search</li>
+                <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Responder duty status &amp; queue settings</li>
+                <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Automated QR &amp; SHA-256 certificate signing</li>
+              </ul>
+            </div>
+            <button onclick="goToAuth('login')" class="w-full py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 font-bold text-xs border border-teal-200 transition">
+              Open Personnel Portal →
+            </button>
+          </div>
+
+          <!-- Admin Card -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-4">
+            <div class="space-y-3">
+              <div class="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-800 flex items-center justify-center">
+                <i data-lucide="shield-check" class="w-6 h-6"></i>
+              </div>
+              <h3 class="font-extrabold text-slate-900 text-base">Admin &amp; System Management</h3>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Full administrative oversight: user &amp; role permissions management, disease cluster analytics, immutable audit logs, PDF/Excel reports, security monitoring, and backups.
+              </p>
+              <ul class="text-xs text-slate-600 space-y-1.5 pt-1">
+                <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> User CRUD, RBAC permissions &amp; password reset</li>
+                <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> PDF/Excel reports &amp; immutable audit logs</li>
+                <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Security monitor, announcements &amp; DB backups</li>
+              </ul>
+            </div>
+            <button onclick="goToAuth('login')" class="w-full py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-bold text-xs border border-indigo-200 transition">
+              Open Admin Console →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- How It Works 4-Step Process -->
+      <div class="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-lg">
+        <div class="text-center max-w-xl mx-auto mb-6">
+          <span class="text-xs font-bold uppercase tracking-widest text-ustp-goldLight">Seamless Workflow</span>
+          <h2 class="text-xl sm:text-2xl font-black mt-1">How VitaCall Works in 4 Steps</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+          <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-2xl space-y-2">
+            <div class="w-8 h-8 rounded-xl bg-ustp-gold text-slate-950 font-black flex items-center justify-center text-sm">1</div>
+            <h3 class="font-bold text-white text-sm">Submit Dorm Checkup Request</h3>
+            <p class="text-slate-300">Student selects symptoms, urgency level, temperature, and verifies their Villanueva boarding house room &amp; landmarks.</p>
+          </div>
+          <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-2xl space-y-2">
+            <div class="w-8 h-8 rounded-xl bg-teal-400 text-slate-950 font-black flex items-center justify-center text-sm">2</div>
+            <h3 class="font-bold text-white text-sm">Triage &amp; Nurse Dispatch</h3>
+            <p class="text-slate-300">Campus health personnel receive instant alerts, accept the assignment, and travel to the student's boarding house with a mobile kit.</p>
+          </div>
+          <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-2xl space-y-2">
+            <div class="w-8 h-8 rounded-xl bg-blue-400 text-slate-950 font-black flex items-center justify-center text-sm">3</div>
+            <h3 class="font-bold text-white text-sm">On-Site Clinical Examination</h3>
+            <p class="text-slate-300">The nurse examines the student on-site, records blood pressure, temperature, pulse, SpO2, diagnosis, and care instructions.</p>
+          </div>
+          <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-2xl space-y-2">
+            <div class="w-8 h-8 rounded-xl bg-emerald-400 text-slate-950 font-black flex items-center justify-center text-sm">4</div>
+            <h3 class="font-bold text-white text-sm">Verifiable Medical Certificate</h3>
+            <p class="text-slate-300">An official USTP Medical Certificate with QR code and SHA-256 hash is automatically issued to excuse missed academic classes.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Landing Page Footer -->
+      <footer class="border-t border-slate-200 pt-6 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+          <img src="assets/ustp-logo.svg" alt="USTP" class="w-8 h-8 object-contain">
+          <div>
+            <div class="font-bold text-slate-800">University of Science and Technology of Southern Philippines — Villanueva Campus</div>
+            <div>Student Health &amp; Wellness Center • Information Assurance &amp; Security Implementation</div>
+          </div>
+        </div>
+        <div class="flex items-center space-x-4 font-semibold">
+          <button onclick="goToAuth('login')" class="hover:text-ustp-navy">Sign In</button>
+          <span>•</span>
+          <button onclick="goToAuth('register')" class="hover:text-ustp-navy">Register</button>
+          <span>•</span>
+          <a href="#landingVerifyCodeInput" class="hover:text-ustp-navy">Verify Slip</a>
+        </div>
+      </footer>
+    </section>
+
+    <!-- ==================== VIEW 0B: AUTHENTICATION (SEPARATE ACCOUNTS) ==================== -->
+    <section id="authView" class="max-w-xl mx-auto py-4 sm:py-8 hidden">
+      <div class="mb-3 flex items-center justify-between">
+        <button type="button" onclick="navigate('landing')" class="text-xs font-bold text-slate-600 hover:text-ustp-navy flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm transition">
+          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+          <span>Back to Landing Page</span>
+        </button>
+        <span class="text-[11px] text-slate-400 font-medium">Secure JWT &amp; Firebase Auth Portal</span>
+      </div>
+
       <div class="bg-white rounded-3xl p-6 sm:p-9 shadow-xl border border-slate-200 relative overflow-hidden">
         
         <!-- Card Header -->
@@ -203,17 +694,17 @@
                 <div class="font-bold text-slate-900 truncate">🎓 Harvey (Student)</div>
                 <div class="text-[10px] text-slate-500">Villa Rosa Dorm Rm 4</div>
               </button>
-              <button type="button" onclick="prefillLogin('franz.go@ustp.edu.ph')" class="p-2 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition">
-                <div class="font-bold text-slate-900 truncate">🎓 Franz (Student)</div>
-                <div class="text-[10px] text-slate-500">Sunrise Dorm Rm 2B</div>
-              </button>
               <button type="button" onclick="prefillLogin('nurse.sarah@ustp.edu.ph')" class="p-2 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200 text-left transition">
                 <div class="font-bold text-teal-900 truncate">🩺 Nurse Sarah, RN</div>
-                <div class="text-[10px] text-teal-700">Health Personnel</div>
+                <div class="text-[10px] text-teal-700">Assigned Checkups &amp; Vitals</div>
+              </button>
+              <button type="button" onclick="prefillLogin('dr.santos@ustp.edu.ph')" class="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-left transition">
+                <div class="font-bold text-blue-900 truncate">👨‍⚕️ Dr. Santos, MD (Doctor)</div>
+                <div class="text-[10px] text-blue-700">Triage, Diagnosis &amp; Sign</div>
               </button>
               <button type="button" onclick="prefillLogin('admin.clinic@ustp.edu.ph')" class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-left transition">
-                <div class="font-bold text-indigo-900 truncate">🛡️ Dr. Reyes (Admin)</div>
-                <div class="text-[10px] text-indigo-700">Clinic Director</div>
+                <div class="font-bold text-indigo-900 truncate">🛡️ Mr. Franz Cruz (Admin)</div>
+                <div class="text-[10px] text-indigo-700">Clinic Director Oversight</div>
               </button>
             </div>
           </div>
@@ -326,6 +817,9 @@
               <button onclick="navigate('profile')" class="bg-amber-500/20 hover:bg-amber-500/30 text-ustp-goldLight px-2.5 py-1 rounded-md border border-amber-500/40 text-xs font-bold flex items-center gap-1 transition">
                 <i data-lucide="edit-3" class="w-3 h-3"></i> Edit Profile
               </button>
+              <button onclick="switchStudentTab('settings')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-md border border-slate-600 text-xs font-bold flex items-center gap-1 transition">
+                <i data-lucide="settings" class="w-3 h-3 text-ustp-goldLight"></i> Settings
+              </button>
             </div>
           </div>
 
@@ -339,69 +833,212 @@
         </div>
       </div>
 
-      <!-- ACTIVE CHECKUP REQUEST SECTION -->
-      <div id="activeRequestContainer" class="space-y-4">
-        <!-- Injected dynamically via JS: Stepper, Personnel Assignment, Status info -->
-      </div>
+      <!-- STUDENT TAB 1: OVERVIEW & CHECKUPS -->
+      <div id="studentTabOverview" class="space-y-6">
+        <!-- ACTIVE CHECKUP REQUEST SECTION -->
+        <div id="activeRequestContainer" class="space-y-4">
+          <!-- Injected dynamically via JS: Stepper, Personnel Assignment, Status info -->
+        </div>
 
-      <!-- MEDICAL CERTIFICATES SECTION -->
-      <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center space-x-2">
-            <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-              <i data-lucide="file-badge" class="w-5 h-5"></i>
+        <!-- MEDICAL CERTIFICATES SECTION -->
+        <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-2">
+              <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+                <i data-lucide="file-badge" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h2 class="font-bold text-slate-900 text-base sm:text-lg">My Issued Medical Certificates</h2>
+                <p class="text-xs text-slate-500">Official medical certificates issued upon off-site boarding house checkup</p>
+              </div>
+            </div>
+            <span id="certCountBadge" class="text-xs bg-slate-100 text-slate-700 font-semibold px-2.5 py-1 rounded-full">0 certificates</span>
+          </div>
+
+          <div id="studentCertificatesList" class="space-y-3">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- BOARDING HOUSE HEALTH GUIDANCE & CLINIC INFO -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-4 flex items-start space-x-3">
+            <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center flex-shrink-0">
+              <i data-lucide="shield-check" class="w-5 h-5"></i>
             </div>
             <div>
-              <h2 class="font-bold text-slate-900 text-base sm:text-lg">My Issued Medical Certificates</h2>
-              <p class="text-xs text-slate-500">Official medical certificates issued upon off-site boarding house checkup</p>
+              <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Boarding House Protocol</h3>
+              <p class="text-slate-600 text-xs mt-1">If you have a fever, isolate in your room and inform your dorm landlord or roommate while waiting for our campus nurse.</p>
             </div>
           </div>
-          <span id="certCountBadge" class="text-xs bg-slate-100 text-slate-700 font-semibold px-2.5 py-1 rounded-full">0 certificates</span>
-        </div>
 
-        <div id="studentCertificatesList" class="space-y-3">
-          <!-- Populated by JS -->
-        </div>
-      </div>
+          <div class="bg-teal-50/70 border border-teal-100 rounded-xl p-4 flex items-start space-x-3">
+            <div class="w-9 h-9 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center flex-shrink-0">
+              <i data-lucide="award" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Excused Absence Slip</h3>
+              <p class="text-slate-600 text-xs mt-1">Completed checkups automatically issue an official certificate with medical license credentials to excuse your classes.</p>
+            </div>
+          </div>
 
-      <!-- BOARDING HOUSE HEALTH GUIDANCE & CLINIC INFO -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-4 flex items-start space-x-3">
-          <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center flex-shrink-0">
-            <i data-lucide="shield-check" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Boarding House Protocol</h3>
-            <p class="text-slate-600 text-xs mt-1">If you have a fever, isolate in your room and inform your dorm landlord or roommate while waiting for our campus nurse.</p>
-          </div>
-        </div>
-
-        <div class="bg-teal-50/70 border border-teal-100 rounded-xl p-4 flex items-start space-x-3">
-          <div class="w-9 h-9 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center flex-shrink-0">
-            <i data-lucide="award" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Excused Absence Slip</h3>
-            <p class="text-slate-600 text-xs mt-1">Completed checkups automatically issue an official certificate with medical license credentials to excuse your classes.</p>
+          <div class="bg-amber-50/70 border border-amber-100 rounded-xl p-4 flex items-start space-x-3">
+            <div class="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
+              <i data-lucide="heart-pulse" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Free Campus Health Care</h3>
+              <p class="text-slate-600 text-xs mt-1">Consultation, on-site checkups, basic OTC medicines, and medical certificate issuance are free for USTP students.</p>
+            </div>
           </div>
         </div>
 
-        <div class="bg-amber-50/70 border border-amber-100 rounded-xl p-4 flex items-start space-x-3">
-          <div class="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
-            <i data-lucide="heart-pulse" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Free Campus Health Care</h3>
-            <p class="text-slate-600 text-xs mt-1">Consultation, on-site checkups, basic OTC medicines, and medical certificate issuance are free for USTP students.</p>
+        <!-- PAST REQUEST HISTORY -->
+        <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm">
+          <h2 class="font-bold text-slate-900 text-base sm:text-lg mb-3">Request History</h2>
+          <div id="studentRequestHistory" class="divide-y divide-slate-100 text-xs sm:text-sm">
+            <!-- Populated by JS -->
           </div>
         </div>
       </div>
 
-      <!-- PAST REQUEST HISTORY -->
-      <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm">
-        <h2 class="font-bold text-slate-900 text-base sm:text-lg mb-3">Request History</h2>
-        <div id="studentRequestHistory" class="divide-y divide-slate-100 text-xs sm:text-sm">
-          <!-- Populated by JS -->
+      <!-- STUDENT TAB 2: CAMPUS HEALTH ANNOUNCEMENTS -->
+      <div id="studentTabAnnouncements" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center gap-2">
+                <i data-lucide="megaphone" class="w-5 h-5 text-amber-600"></i>
+                <span>Campus &amp; Boarding House Health Announcements</span>
+              </h2>
+              <p class="text-xs text-slate-500">Official health advisories and clinic schedules for USTP Villanueva students</p>
+            </div>
+          </div>
+          <div id="studentAnnouncementsList" class="space-y-3 text-xs"></div>
+        </div>
+      </div>
+
+      <!-- STUDENT TAB 3: STUDENT DASHBOARD SETTINGS -->
+      <div id="studentTabSettings" class="hidden space-y-6">
+        <div class="bg-white rounded-2xl p-5 sm:p-7 border border-slate-200 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+            <div>
+              <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                <i data-lucide="sliders" class="w-5 h-5 text-ustp-navy"></i>
+                <span>Student Dashboard Settings &amp; Preferences</span>
+              </h2>
+              <p class="text-xs text-slate-500">Customize your notification alerts, boarding house privacy, display layout, and account security.</p>
+            </div>
+            <button onclick="navigate('profile')" class="text-xs font-bold text-ustp-blue hover:underline flex items-center gap-1">
+              <i data-lucide="user-cog" class="w-3.5 h-3.5"></i> Edit Personal &amp; Dorm Profile
+            </button>
+          </div>
+
+          <form onsubmit="saveRoleDashboardSettings(event, 'requester')" class="space-y-6 text-xs sm:text-sm">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- Notification Settings -->
+              <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <i data-lucide="bell-ring" class="w-4 h-4 text-amber-600"></i>
+                  <span>Notification &amp; Alert Preferences</span>
+                </h3>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">Email Status Updates</div>
+                    <div class="text-[11px] text-slate-500">Receive email alerts when a nurse is en route or issues a certificate</div>
+                  </div>
+                  <input type="checkbox" id="stuSetEmailAlerts" checked class="w-4 h-4 rounded text-ustp-navy">
+                </label>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">SMS Text Alerts</div>
+                    <div class="text-[11px] text-slate-500">Send SMS notifications to your registered mobile number</div>
+                  </div>
+                  <input type="checkbox" id="stuSetSmsAlerts" checked class="w-4 h-4 rounded text-ustp-navy">
+                </label>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">In-App Sound Effects</div>
+                    <div class="text-[11px] text-slate-500">Play subtle chime when checkup request status advances</div>
+                  </div>
+                  <input type="checkbox" id="stuSetSoundAlerts" checked class="w-4 h-4 rounded text-ustp-navy">
+                </label>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">Show Campus Health Banner</div>
+                    <div class="text-[11px] text-slate-500">Display pinned clinic announcements at the top of my dashboard</div>
+                  </div>
+                  <input type="checkbox" id="stuSetShowAnnouncements" checked class="w-4 h-4 rounded text-ustp-navy">
+                </label>
+              </div>
+
+              <!-- Privacy, Location & Display Settings -->
+              <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <i data-lucide="shield" class="w-4 h-4 text-teal-600"></i>
+                  <span>Boarding House Privacy &amp; Accessibility</span>
+                </h3>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">Auto-Fill Boarding House Details</div>
+                    <div class="text-[11px] text-slate-500">Share my saved room number &amp; landmarks with assigned responders</div>
+                  </div>
+                  <input type="checkbox" id="stuSetShareLocation" checked class="w-4 h-4 rounded text-ustp-navy">
+                </label>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">Emergency Contact Auto-Share</div>
+                    <div class="text-[11px] text-slate-500">Automatically provide guardian contact on High/Severe urgency requests</div>
+                  </div>
+                  <input type="checkbox" id="stuSetAutoEmergency" checked class="w-4 h-4 rounded text-ustp-navy">
+                </label>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">Compact Dashboard Layout</div>
+                    <div class="text-[11px] text-slate-500">Reduce card padding for smaller mobile phone screens</div>
+                  </div>
+                  <input type="checkbox" id="stuSetCompactView" class="w-4 h-4 rounded text-ustp-navy">
+                </label>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">High-Contrast Status Badges</div>
+                    <div class="text-[11px] text-slate-500">Enhance border contrast on urgency and status pills (WCAG AA+)</div>
+                  </div>
+                  <input type="checkbox" id="stuSetHighContrast" class="w-4 h-4 rounded text-ustp-navy">
+                </label>
+              </div>
+            </div>
+
+            <!-- Quick Security & Password Change -->
+            <div class="bg-amber-50/50 p-4 rounded-2xl border border-amber-200/80 space-y-3">
+              <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                <i data-lucide="key-round" class="w-4 h-4 text-amber-700"></i>
+                <span>Account Security &amp; Quick Password Update</span>
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">New Password (leave blank to keep current)</label>
+                  <input type="password" id="stuSetNewPassword" placeholder="Minimum 6 characters" minlength="6" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs">
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Assigned Role Permissions</label>
+                  <div id="stuPermissionsSummary" class="px-3 py-2 bg-white border border-slate-200 rounded-xl text-[11px] text-slate-600 font-medium">
+                    Submit Checkup Requests • View Medical Certificates • Edit Profile
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button type="button" onclick="switchStudentTab('overview')" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition">
+                Back to Overview
+              </button>
+              <button type="submit" id="btnSaveStudentSettings" class="px-6 py-2.5 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                <i data-lucide="save" class="w-4 h-4 text-ustp-goldLight"></i>
+                <span>Save Student Settings</span>
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </section>
@@ -414,10 +1051,18 @@
           <div class="flex items-center space-x-2 text-teal-300 text-xs font-bold tracking-wide uppercase mb-1">
             <span>USTP Health Personnel Triage Portal</span>
             <span>•</span>
-            <span class="bg-teal-400/20 px-2 py-0.5 rounded text-[11px] border border-teal-400/30">Active Responder</span>
+            <span id="personnelDutyBadge" class="bg-teal-400/20 px-2 py-0.5 rounded text-[11px] border border-teal-400/30">Active Responder • On Duty</span>
           </div>
           <h1 class="text-2xl font-extrabold text-white" id="personnelNameDisplay">Nurse Sarah Alcantara, RN</h1>
           <p class="text-slate-300 text-xs sm:text-sm mt-0.5" id="personnelTitleDisplay">Campus Health Nurse • PRC RN-0982341</p>
+          <div class="flex flex-wrap items-center gap-2 mt-3">
+            <button onclick="navigate('profile')" class="bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 px-2.5 py-1 rounded-md border border-teal-400/30 text-xs font-bold flex items-center gap-1 transition">
+              <i data-lucide="user-check" class="w-3.5 h-3.5"></i> Edit Credentials
+            </button>
+            <button onclick="switchPersonnelTab('settings')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-md border border-slate-600 text-xs font-bold flex items-center gap-1 transition">
+              <i data-lucide="settings" class="w-3.5 h-3.5 text-ustp-goldLight"></i> Responder Settings
+            </button>
+          </div>
         </div>
 
         <!-- Quick Summary Counters -->
@@ -437,45 +1082,197 @@
         </div>
       </div>
 
-      <!-- Triage Filter Bar -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200">
-        <!-- Tabs -->
-        <div class="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs font-semibold">
-          <button onclick="filterQueue('all')" class="queue-tab px-3 py-1.5 rounded-lg bg-ustp-navy text-white transition" data-filter="all">All Requests</button>
-          <button onclick="filterQueue('pending')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="pending">Pending Triage</button>
-          <button onclick="filterQueue('active')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="active">En Route / In Progress</button>
-          <button onclick="filterQueue('completed')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="completed">Completed</button>
+      <!-- PERSONNEL TAB 1: TRIAGE QUEUE -->
+      <div id="personnelTabQueue" class="space-y-4">
+        <!-- Triage Filter Bar -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200">
+          <!-- Tabs -->
+          <div class="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs font-semibold">
+            <button onclick="filterQueue('all')" class="queue-tab px-3 py-1.5 rounded-lg bg-ustp-navy text-white transition" data-filter="all">All</button>
+            <button id="queueTabPendingBtn" onclick="filterQueue('pending')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="pending">Pending Triage Queue</button>
+            <button onclick="filterQueue('active')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="active">Assigned / In Progress</button>
+            <button id="queueTabAwaitingDoctorBtn" onclick="filterQueue('awaiting_doctor')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="awaiting_doctor">Awaiting Doctor Validation</button>
+            <button onclick="filterQueue('completed')" class="queue-tab px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-filter="completed">Completed</button>
+          </div>
+
+          <!-- Search input -->
+          <div class="relative w-full sm:w-64">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" id="queueSearchInput" oninput="searchQueue(this.value)" placeholder="Search student or dorm..." class="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+          </div>
         </div>
 
-        <!-- Search input -->
-        <div class="relative w-full sm:w-64">
-          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-          <input type="text" id="queueSearchInput" oninput="searchQueue(this.value)" placeholder="Search student or dorm..." class="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+        <!-- Request Queue List -->
+        <div id="personnelQueueList" class="space-y-4">
+          <!-- Populated via JS -->
         </div>
       </div>
 
-      <!-- Request Queue List -->
-      <div id="personnelQueueList" class="space-y-4">
-        <!-- Populated via JS -->
+      <!-- PERSONNEL TAB 2: ISSUED CERTIFICATES -->
+      <div id="personnelTabCertificates" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 class="font-bold text-slate-900 text-base sm:text-lg">Issued Digital Medical Certificates</h2>
+              <p class="text-xs text-slate-500">All verifiable certificates generated from completed boarding house checkups</p>
+            </div>
+          </div>
+          <div id="personnelCertificatesList" class="space-y-3 text-xs"></div>
+        </div>
+      </div>
+
+      <!-- PERSONNEL TAB 3: CLINIC ANNOUNCEMENTS -->
+      <div id="personnelTabAnnouncements" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <h2 class="font-bold text-slate-900 text-base sm:text-lg">Health Personnel &amp; Campus Advisories</h2>
+            <p class="text-xs text-slate-500">Dispatch directives and campus health bulletins</p>
+          </div>
+          <div id="personnelAnnouncementsList" class="space-y-3 text-xs"></div>
+        </div>
+      </div>
+
+      <!-- PERSONNEL TAB 4: RESPONDER DASHBOARD SETTINGS -->
+      <div id="personnelTabSettings" class="hidden space-y-6">
+        <div class="bg-white rounded-2xl p-5 sm:p-7 border border-slate-200 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+            <div>
+              <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                <i data-lucide="sliders" class="w-5 h-5 text-teal-700"></i>
+                <span>Health Personnel Responder Settings</span>
+              </h2>
+              <p class="text-xs text-slate-500">Configure your active duty status, triage queue behavior, clinical certificate defaults, and security.</p>
+            </div>
+            <button onclick="navigate('profile')" class="text-xs font-bold text-teal-700 hover:underline flex items-center gap-1">
+              <i data-lucide="award" class="w-3.5 h-3.5"></i> Update PRC License &amp; Profile
+            </button>
+          </div>
+
+          <form onsubmit="saveRoleDashboardSettings(event, 'personnel')" class="space-y-6 text-xs sm:text-sm">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- Duty & Dispatch Preferences -->
+              <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <i data-lucide="navigation" class="w-4 h-4 text-teal-700"></i>
+                  <span>Duty Status &amp; Field Dispatch</span>
+                </h3>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Current Responder Duty Status</label>
+                  <select id="perSetDutyStatus" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold">
+                    <option value="on_duty">🟢 On Duty — Available for Dispatch</option>
+                    <option value="dispatched">🟡 Dispatched — Currently On-Site at Dormitory</option>
+                    <option value="off_duty">⚪ Off Duty / Clinic Shift Break</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Assigned Villanueva Response Sector</label>
+                  <input type="text" id="perSetResponseZone" value="All Villanueva Sectors (Purok 1-6)" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs">
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Default Triage Queue Filter</label>
+                  <select id="perSetDefaultFilter" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs">
+                    <option value="all">All Requests</option>
+                    <option value="pending">Pending Triage Only</option>
+                    <option value="active">En Route / In Progress</option>
+                  </select>
+                </div>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">High-Urgency Audio Alert</div>
+                    <div class="text-[11px] text-slate-500">Alert sound when a Severe urgency checkup request arrives</div>
+                  </div>
+                  <input type="checkbox" id="perSetUrgentSound" checked class="w-4 h-4 rounded text-teal-700">
+                </label>
+              </div>
+
+              <!-- Clinical & Certificate Defaults -->
+              <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <i data-lucide="file-check" class="w-4 h-4 text-amber-600"></i>
+                  <span>Clinical Examination &amp; Certificate Defaults</span>
+                </h3>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Default Recommended Excused Days</label>
+                  <input type="number" id="perSetDefaultExcusedDays" value="3" min="1" max="14" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold">
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Default Landlord / Follow-Up Remarks Template</label>
+                  <textarea id="perSetFollowUpNote" rows="2" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs">Advised boarding house landlord to monitor student; contact clinic if fever persists beyond 48 hours.</textarea>
+                </div>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">Display PRC License on Certificates</div>
+                    <div class="text-[11px] text-slate-500">Include my verified PRC license number beneath my signature</div>
+                  </div>
+                  <input type="checkbox" id="perSetShowLicense" checked class="w-4 h-4 rounded text-teal-700">
+                </label>
+                <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                  <div>
+                    <div class="font-bold text-slate-800 text-xs">Show Clinic Announcements Banner</div>
+                    <div class="text-[11px] text-slate-500">Display administrative advisories at top of Triage portal</div>
+                  </div>
+                  <input type="checkbox" id="perSetShowAnnouncements" checked class="w-4 h-4 rounded text-teal-700">
+                </label>
+              </div>
+            </div>
+
+            <!-- Security & Role Permissions Summary -->
+            <div class="bg-teal-50/50 p-4 rounded-2xl border border-teal-200 space-y-3">
+              <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                <i data-lucide="lock" class="w-4 h-4 text-teal-700"></i>
+                <span>Account Security &amp; Role Access Control</span>
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Change Password (optional)</label>
+                  <input type="password" id="perSetNewPassword" placeholder="Leave blank to keep current password" minlength="6" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs">
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Authorized Personnel Capabilities</label>
+                  <div id="perPermissionsSummary" class="px-3 py-2 bg-white border border-slate-200 rounded-xl text-[11px] text-slate-600 font-medium">
+                    Triage Requests • Record Vitals &amp; Diagnosis • Issue Medical Certificates (Admin settings restricted)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button type="button" onclick="switchPersonnelTab('queue')" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition">
+                Back to Triage Queue
+              </button>
+              <button type="submit" id="btnSavePersonnelSettings" class="px-6 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                <i data-lucide="save" class="w-4 h-4 text-ustp-goldLight"></i>
+                <span>Save Responder Settings</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
 
-    <!-- ==================== VIEW 3: HEALTH CENTER ADMIN & AUDIT LOGS ==================== -->
+    <!-- ==================== VIEW 3: COMPREHENSIVE ADMIN DASHBOARD & SYSTEM MANAGEMENT ==================== -->
     <section id="viewAdminDashboard" class="space-y-6 hidden">
-      <!-- Admin Header -->
-      <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-ustp-navy text-white rounded-2xl p-5 sm:p-7 shadow-lg flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <!-- Top Admin Banner -->
+      <div class="no-print bg-gradient-to-r from-indigo-950 via-slate-900 to-ustp-navy text-white rounded-2xl p-5 sm:p-6 shadow-lg flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <div class="flex items-center space-x-2 text-indigo-300 text-xs font-bold tracking-wide uppercase mb-1">
+          <div class="flex flex-wrap items-center gap-2 text-indigo-300 text-xs font-bold tracking-wide uppercase mb-1">
             <span>USTP Health Services Oversight</span>
             <span>•</span>
             <span class="bg-indigo-500/20 px-2 py-0.5 rounded text-[11px] border border-indigo-400/30">System Administrator</span>
+            <span class="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-[10px] border border-emerald-400/30 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Firebase &amp; RBAC Sync Active
+            </span>
           </div>
-          <h1 class="text-2xl font-extrabold text-white">Health Center Admin & Security Audit</h1>
-          <p class="text-slate-300 text-xs sm:text-sm mt-0.5">CIA Triad Enforcement, Real-Time Surveillance & Tamper-Proof Audit Trail</p>
+          <h1 class="text-xl sm:text-2xl font-extrabold text-white" id="adminHeaderTitle">Health Center Admin &amp; System Management</h1>
+          <p class="text-slate-300 text-xs sm:text-sm mt-0.5">Comprehensive Administration, User &amp; Role Management, Real-Time Analytics, Security Monitoring &amp; Tamper-Proof Audit Trail</p>
         </div>
 
-        <!-- Backup & Recovery Actions -->
-        <div class="flex items-center gap-2">
+        <!-- Quick Actions in Header -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="openAdminUserModal()" class="bg-ustp-gold hover:bg-amber-400 text-slate-950 px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition shadow-sm">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            <span>+ New User</span>
+          </button>
           <button onclick="exportDatabaseBackup()" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
             <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
             <span>Export DB Backup</span>
@@ -488,92 +1285,894 @@
         </div>
       </div>
 
-      <!-- Surveillance Metrics Cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs text-slate-500 font-medium">Total Checkup Requests</div>
-          <div class="text-2xl font-black text-slate-900 mt-1" id="adminTotalReq">0</div>
-          <div class="text-[11px] text-teal-600 mt-1 flex items-center gap-1">
-            <i data-lucide="activity" class="w-3 h-3"></i> Off-site requests
+      <!-- ADMIN MAIN CONTENT AREA (Navigation is now in the persistent Left Sidebar #sidebarNav) -->
+      <div class="w-full space-y-6">
+        <div class="flex-1 min-w-0 w-full space-y-6">
+
+          <!-- ==================== ADMIN SECTION 1: OVERVIEW & ANALYTICS ==================== -->
+          <div id="adminSectionOverview" class="admin-section-panel space-y-6">
+            
+            <!-- Pending Approvals Alert Box (Shown dynamically if any accounts are pending) -->
+            <div id="adminPendingApprovalsBox" class="hidden bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"></div>
+
+            <!-- Row 1: User & Account Real-Time Statistics Cards -->
+            <div>
+              <div class="flex items-center justify-between mb-2.5">
+                <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <i data-lucide="users" class="w-4 h-4 text-indigo-600"></i>
+                  <span>Registered Accounts &amp; Role Statistics (Live Firebase Data)</span>
+                </h2>
+                <button onclick="switchAdminSection('users')" class="text-xs font-bold text-indigo-700 hover:underline">Manage All Users →</button>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-[11px] text-slate-500 font-medium">Total Users</div>
+                  <div class="text-2xl font-black text-slate-900 mt-0.5" id="adminStatTotalUsers">0</div>
+                  <div class="text-[10px] text-indigo-600 font-semibold mt-1">All registered</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-[11px] text-slate-500 font-medium">Total Students</div>
+                  <div class="text-2xl font-black text-amber-600 mt-0.5" id="adminStatStudents">0</div>
+                  <div class="text-[10px] text-slate-500 mt-1">Boarding residents</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-[11px] text-slate-500 font-medium">Total Personnel</div>
+                  <div class="text-2xl font-black text-teal-600 mt-0.5" id="adminStatPersonnel">0</div>
+                  <div class="text-[10px] text-slate-500 mt-1">Nurses &amp; doctors</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-[11px] text-slate-500 font-medium">Administrators</div>
+                  <div class="text-2xl font-black text-indigo-700 mt-0.5" id="adminStatAdmins">0</div>
+                  <div class="text-[10px] text-slate-500 mt-1">System oversight</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-[11px] text-slate-500 font-medium">Active / Inactive</div>
+                  <div class="text-2xl font-black text-emerald-600 mt-0.5">
+                    <span id="adminStatActiveAccounts">0</span>
+                    <span class="text-sm text-slate-400 font-normal">/</span>
+                    <span id="adminStatInactiveAccounts" class="text-base text-rose-600">0</span>
+                  </div>
+                  <div class="text-[10px] text-slate-500 mt-1">Account status</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-[11px] text-slate-500 font-medium">Pending Approval</div>
+                  <div class="text-2xl font-black text-amber-500 mt-0.5" id="adminStatPendingApprovals">0</div>
+                  <div class="text-[10px] text-slate-500 mt-1">Awaiting review</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 2: Clinical Surveillance & Security Metrics Cards (Preserving existing IDs) -->
+            <div>
+              <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 mb-2.5">
+                <i data-lucide="activity" class="w-4 h-4 text-teal-600"></i>
+                <span>Clinical Operations &amp; Security Audit Metrics</span>
+              </h2>
+              <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-xs text-slate-500 font-medium">Total Checkup Requests</div>
+                  <div class="text-2xl font-black text-slate-900 mt-1" id="adminTotalReq">0</div>
+                  <div class="text-[11px] text-teal-600 mt-1 flex items-center gap-1">
+                    <i data-lucide="activity" class="w-3 h-3"></i> Off-site requests
+                  </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-xs text-slate-500 font-medium">Boarding Houses Covered</div>
+                  <div class="text-2xl font-black text-indigo-700 mt-1" id="adminTotalDorms">5</div>
+                  <div class="text-[11px] text-slate-500 mt-1">Villanueva perimeter</div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-xs text-slate-500 font-medium">Certificates Issued</div>
+                  <div class="text-2xl font-black text-emerald-600 mt-1" id="adminTotalCerts">0</div>
+                  <div class="text-[11px] text-slate-500 mt-1">Cryptographically signed</div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="text-xs text-slate-500 font-medium">Audit Trail Events</div>
+                  <div class="text-2xl font-black text-amber-600 mt-1" id="adminTotalLogs">0</div>
+                  <div class="text-[11px] text-slate-500 mt-1">SHA-256 chained</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 3: Interactive Charts (Account Breakdown, Request Triage Chart, Login Activity Stats) -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <!-- Chart 1: User Role & Status Visual Chart -->
+              <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                    <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-600"></i>
+                    <span>User Role &amp; Status Chart</span>
+                  </h3>
+                  <span class="text-[10px] text-slate-400 font-mono">Live DB</span>
+                </div>
+                <div id="adminChartUsersDistribution" class="space-y-3 text-xs"></div>
+              </div>
+
+              <!-- Chart 2: Checkup Triage & Urgency Analytics -->
+              <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4 text-teal-600"></i>
+                    <span>Checkup Status &amp; Urgency</span>
+                  </h3>
+                  <span class="text-[10px] text-slate-400 font-mono">Real-Time</span>
+                </div>
+                <div id="adminChartRequestsBreakdown" class="space-y-3 text-xs"></div>
+              </div>
+
+              <!-- Chart 3: Login Activity & Security Statistics -->
+              <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+                    <span>Login Activity Statistics</span>
+                  </h3>
+                  <button onclick="switchAdminSection('security')" class="text-[11px] font-bold text-indigo-600 hover:underline">Security →</button>
+                </div>
+                <div id="adminChartLoginActivity" class="space-y-3 text-xs"></div>
+              </div>
+            </div>
+
+            <!-- Row 4: Health Surveillance: Symptom Clusters & Dormitory Density -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <!-- Hotspots -->
+              <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h2 class="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2 mb-3">
+                  <i data-lucide="map-pinned" class="w-4 h-4 text-amber-600"></i>
+                  <span>Boarding House Request Density (Villanueva)</span>
+                </h2>
+                <div id="dormDensityList" class="space-y-2 text-xs">
+                  <!-- Injected by JS -->
+                </div>
+              </div>
+
+              <!-- Top Symptoms Observed -->
+              <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h2 class="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2 mb-3">
+                  <i data-lucide="thermometer-snowflake" class="w-4 h-4 text-rose-600"></i>
+                  <span>Campus Illness Surveillance Clusters</span>
+                </h2>
+                <div id="symptomClusterList" class="space-y-2 text-xs">
+                  <!-- Injected by JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 5: Recent System Activities Live Stream -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 class="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                    <i data-lucide="history" class="w-4 h-4 text-indigo-700"></i>
+                    <span>Recent System Activities</span>
+                  </h2>
+                  <p class="text-xs text-slate-500">Latest real-time operations recorded across Student, Personnel, and Admin portals</p>
+                </div>
+                <button onclick="switchAdminSection('logs')" class="text-xs font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1">
+                  <span>View Full Audit Trail</span>
+                  <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+              <div id="adminOverviewRecentActivity" class="divide-y divide-slate-100 text-xs"></div>
+            </div>
           </div>
-        </div>
 
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs text-slate-500 font-medium">Boarding Houses Covered</div>
-          <div class="text-2xl font-black text-indigo-700 mt-1" id="adminTotalDorms">5</div>
-          <div class="text-[11px] text-slate-500 mt-1">Villanueva perimeter</div>
-        </div>
+          <!-- ==================== ADMIN SECTION 2: USER MANAGEMENT ==================== -->
+          <div id="adminSectionUsers" class="admin-section-panel hidden space-y-5">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                    <i data-lucide="users" class="w-5 h-5 text-indigo-700"></i>
+                    <span>User Account &amp; Role Management</span>
+                  </h2>
+                  <p class="text-xs text-slate-500">Create, edit, activate/deactivate, reset passwords, and manage roles &amp; granular permissions for all accounts.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button onclick="exportUsersCsv()" class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                    <span>Export Users CSV</span>
+                  </button>
+                  <button onclick="openAdminUserModal()" class="px-4 py-2 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition">
+                    <i data-lucide="user-plus" class="w-4 h-4 text-ustp-goldLight"></i>
+                    <span>Create User Account</span>
+                  </button>
+                </div>
+              </div>
 
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs text-slate-500 font-medium">Certificates Issued</div>
-          <div class="text-2xl font-black text-emerald-600 mt-1" id="adminTotalCerts">0</div>
-          <div class="text-[11px] text-slate-500 mt-1">Cryptographically signed</div>
-        </div>
+              <!-- Search, Filter, and Sort Controls -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div class="relative">
+                  <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+                  <input type="text" id="adminUserSearch" oninput="renderAdminUsersTable()" placeholder="Search name, email, ID, dorm..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-ustp-navy focus:bg-white">
+                </div>
+                <div>
+                  <select id="adminUserRoleFilter" onchange="renderAdminUsersTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700">
+                    <option value="all">All Roles (Admin, Personnel, Student)</option>
+                    <option value="requester">🎓 Students (Requesters)</option>
+                    <option value="personnel">🩺 Health Personnel</option>
+                    <option value="admin">🛡️ Administrators</option>
+                  </select>
+                </div>
+                <div>
+                  <select id="adminUserStatusFilter" onchange="renderAdminUsersTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700">
+                    <option value="all">All Account Statuses</option>
+                    <option value="active">🟢 Active Accounts</option>
+                    <option value="inactive">🔴 Inactive / Deactivated</option>
+                    <option value="pending">🟡 Pending Approval</option>
+                  </select>
+                </div>
+                <div>
+                  <select id="adminUserSortBy" onchange="renderAdminUsersTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700">
+                    <option value="newest">Sort: Newest Registered</option>
+                    <option value="oldest">Sort: Oldest Registered</option>
+                    <option value="name_asc">Sort: Name (A → Z)</option>
+                    <option value="name_desc">Sort: Name (Z → A)</option>
+                    <option value="role">Sort: Role</option>
+                    <option value="status">Sort: Account Status</option>
+                  </select>
+                </div>
+              </div>
 
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs text-slate-500 font-medium">Audit Trail Events</div>
-          <div class="text-2xl font-black text-amber-600 mt-1" id="adminTotalLogs">0</div>
-          <div class="text-[11px] text-slate-500 mt-1">SHA-256 chained</div>
-        </div>
-      </div>
+              <!-- Users Table -->
+              <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                    <tr>
+                      <th class="p-3">Account &amp; Email</th>
+                      <th class="p-3">Role</th>
+                      <th class="p-3">Status</th>
+                      <th class="p-3">Affiliation / Boarding House</th>
+                      <th class="p-3">Permissions</th>
+                      <th class="p-3">Registered</th>
+                      <th class="p-3 text-right">Administrative Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminUsersTableBody" class="divide-y divide-slate-100">
+                    <!-- Populated via JS -->
+                  </tbody>
+                </table>
+              </div>
 
-      <!-- Health Surveillance: Symptom Clusters & Dormitory Density -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Hotspots -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h2 class="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2 mb-3">
-            <i data-lucide="map-pinned" class="w-4 h-4 text-amber-600"></i>
-            <span>Boarding House Request Density (Villanueva)</span>
-          </h2>
-          <div id="dormDensityList" class="space-y-2 text-xs">
-            <!-- Injected by JS -->
+              <!-- Users Pagination Footer -->
+              <div id="adminUsersPagination" class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 text-xs text-slate-500"></div>
+            </div>
           </div>
-        </div>
 
-        <!-- Top Symptoms Observed -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h2 class="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2 mb-3">
-            <i data-lucide="thermometer-snowflake" class="w-4 h-4 text-rose-600"></i>
-            <span>Campus Illness Surveillance Clusters</span>
-          </h2>
-          <div id="symptomClusterList" class="space-y-2 text-xs">
-            <!-- Injected by JS -->
+          <!-- ==================== ADMIN SECTION 3: ACTIVITY LOGS & AUDIT TRAIL ==================== -->
+          <div id="adminSectionLogs" class="admin-section-panel hidden space-y-5">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                    <i data-lucide="lock" class="w-5 h-5 text-indigo-700"></i>
+                    <span>Information Assurance Activity Logs &amp; Audit Trail</span>
+                  </h2>
+                  <p class="text-xs text-slate-500">Every login, registration, profile change, status update, clinical record, and permission change is cryptographically hashed and protected from modification or deletion.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="exportAuditLogsCsv()" class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+                    <span>Export Logs CSV</span>
+                  </button>
+                  <button onclick="refreshAuditLogs()" class="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    <span>Refresh Logs</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Immutable Protection Notice -->
+              <div class="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3 flex items-center justify-between text-xs text-indigo-950">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-indigo-700 flex-shrink-0"></i>
+                  <span><strong>Immutable Audit Protection Active:</strong> Log entries are write-once and chained with SHA-256 integrity hashes. Unauthorized modification or deletion is blocked at the server and Firestore rule layer.</span>
+                </div>
+                <span class="hidden sm:inline-block font-mono text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-bold">SHA-256 VERIFIED</span>
+              </div>
+
+              <!-- Search & Filter Bar for Audit Logs -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-xs">
+                <div class="lg:col-span-2 relative">
+                  <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+                  <input type="text" id="auditSearchInput" oninput="renderAdminAuditLogsTable()" placeholder="Search user, action, description, or record ID..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                </div>
+                <div>
+                  <select id="auditRoleFilter" onchange="renderAdminAuditLogsTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700">
+                    <option value="all">All Roles</option>
+                    <option value="admin">Administrator</option>
+                    <option value="personnel">Health Personnel</option>
+                    <option value="requester">Student Requester</option>
+                    <option value="public">Public / System</option>
+                  </select>
+                </div>
+                <div>
+                  <select id="auditCategoryFilter" onchange="renderAdminAuditLogsTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700">
+                    <option value="all">All Activity Types</option>
+                    <option value="auth">Login &amp; Logout</option>
+                    <option value="account">Account Creation &amp; Updates</option>
+                    <option value="status">Activation &amp; Deactivation</option>
+                    <option value="records">Records &amp; Certificates</option>
+                    <option value="admin">Admin, Backup &amp; Settings</option>
+                    <option value="permissions">Roles &amp; Permissions</option>
+                  </select>
+                </div>
+                <div>
+                  <input type="date" id="auditDateFilter" onchange="renderAdminAuditLogsTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-700" title="Filter by date">
+                </div>
+              </div>
+
+              <!-- Audit Logs Table (Preserving #auditTableBody ID) -->
+              <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                    <tr>
+                      <th class="p-3">Date &amp; Time</th>
+                      <th class="p-3">User &amp; Role</th>
+                      <th class="p-3">Activity Performed</th>
+                      <th class="p-3">Record / Identifier</th>
+                      <th class="p-3">Action Description</th>
+                      <th class="p-3">IP Address</th>
+                      <th class="p-3">Integrity Hash</th>
+                    </tr>
+                  </thead>
+                  <tbody id="auditTableBody" class="divide-y divide-slate-100 font-mono">
+                    <!-- Populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Audit Pagination -->
+              <div id="auditPagination" class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 text-xs text-slate-500"></div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Immutable Audit Logs (Information Assurance CIA Triad) -->
-      <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h2 class="font-bold text-slate-900 text-base flex items-center gap-2">
-              <i data-lucide="lock" class="w-4 h-4 text-indigo-700"></i>
-              <span>Information Assurance Audit Trail</span>
-            </h2>
-            <p class="text-xs text-slate-500">Every access, triage update, diagnosis, and certificate generation is logged with timestamp, user ID, IP, and hash.</p>
+          <!-- ==================== ADMIN SECTION 4: REPORTS & ANALYTICS ==================== -->
+          <div id="adminSectionReports" class="admin-section-panel hidden space-y-5">
+            <!-- Report Generator Controls -->
+            <div class="no-print bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                    <i data-lucide="file-spreadsheet" class="w-5 h-5 text-emerald-700"></i>
+                    <span>System Reports &amp; Analytics Generator</span>
+                  </h2>
+                  <p class="text-xs text-slate-500">Generate accurate daily, weekly, monthly, or custom-date reports from Firebase database records and export to PDF, Excel, or Print.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button onclick="exportAdminReportExcel()" class="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition">
+                    <i data-lucide="sheet" class="w-4 h-4"></i>
+                    <span>Export to Excel (.CSV)</span>
+                  </button>
+                  <button onclick="printAdminReportPdf()" class="px-3.5 py-2 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition">
+                    <i data-lucide="printer" class="w-4 h-4 text-ustp-goldLight"></i>
+                    <span>Export PDF / Print Report</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs items-end">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Report Category</label>
+                  <select id="reportCategorySelect" onchange="generateAdminReport(false)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
+                    <option value="summary">📊 Executive System Summary</option>
+                    <option value="students">🎓 Student Health &amp; Boarding Report</option>
+                    <option value="personnel">🩺 Health Personnel Workload Report</option>
+                    <option value="activity">📜 Account &amp; System Activity Report</option>
+                    <option value="logins">🔐 Login History &amp; Access Report</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Timeframe / Frequency</label>
+                  <select id="reportPeriodSelect" onchange="handleReportPeriodChange()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
+                    <option value="all">All Available Records</option>
+                    <option value="daily">Daily Report (Last 24 Hours)</option>
+                    <option value="weekly">Weekly Report (Last 7 Days)</option>
+                    <option value="monthly">Monthly Report (Last 30 Days)</option>
+                    <option value="custom">Custom Date Range</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Start Date</label>
+                  <input type="date" id="reportStartDate" onchange="generateAdminReport(false)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">End Date</label>
+                  <input type="date" id="reportEndDate" onchange="generateAdminReport(false)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                </div>
+                <div>
+                  <button onclick="generateAdminReport(true)" class="w-full py-2.5 px-4 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold flex items-center justify-center gap-1.5 transition shadow-sm">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    <span>Generate Report</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Printable Official Report Preview Sheet -->
+            <div id="adminReportPreviewContainer" class="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+              <!-- Populated dynamically by generateAdminReport() -->
+            </div>
           </div>
-          <button onclick="refreshAuditLogs()" class="text-xs text-indigo-700 hover:text-indigo-900 font-semibold flex items-center gap-1 self-start sm:self-auto">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Logs
-          </button>
-        </div>
 
-        <div class="overflow-x-auto rounded-xl border border-slate-200">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-              <tr>
-                <th class="p-3">Timestamp</th>
-                <th class="p-3">User &amp; Role</th>
-                <th class="p-3">Action</th>
-                <th class="p-3">Target Entity</th>
-                <th class="p-3">Details</th>
-                <th class="p-3">IP Address</th>
-                <th class="p-3">Integrity Hash</th>
-              </tr>
-            </thead>
-            <tbody id="auditTableBody" class="divide-y divide-slate-100 font-mono">
-              <!-- Populated by JS -->
-            </tbody>
-          </table>
+          <!-- ==================== ADMIN SECTION 5: SECURITY MANAGEMENT ==================== -->
+          <div id="adminSectionSecurity" class="admin-section-panel hidden space-y-5">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                    <i data-lucide="shield-alert" class="w-5 h-5 text-rose-600"></i>
+                    <span>Security Monitoring &amp; Access Control Center</span>
+                  </h2>
+                  <p class="text-xs text-slate-500">Monitor login attempts, failed authentication alerts, suspicious account activities, session expiration policies, and Firebase security rules.</p>
+                </div>
+                <button onclick="loadAdminSecurityData()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                  <span>Refresh Security Feed</span>
+                </button>
+              </div>
+
+              <!-- Security KPIs -->
+              <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                  <div class="text-[11px] text-emerald-800 font-semibold">Successful Logins</div>
+                  <div class="text-2xl font-black text-emerald-700 mt-0.5" id="secStatSuccessLogins">0</div>
+                  <div class="text-[10px] text-emerald-600 mt-0.5">Verified JWT sessions</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-rose-50/70 border border-rose-200">
+                  <div class="text-[11px] text-rose-800 font-semibold">Failed Login Attempts</div>
+                  <div class="text-2xl font-black text-rose-700 mt-0.5" id="secStatFailedLogins">0</div>
+                  <div class="text-[10px] text-rose-600 mt-0.5">Invalid credentials</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200">
+                  <div class="text-[11px] text-amber-900 font-semibold">Unresolved Alerts</div>
+                  <div class="text-2xl font-black text-amber-700 mt-0.5" id="secStatUnresolvedAlerts">0</div>
+                  <div class="text-[10px] text-amber-700 mt-0.5">Suspicious events</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-purple-50/70 border border-purple-200">
+                  <div class="text-[11px] text-purple-900 font-semibold">Locked Accounts</div>
+                  <div class="text-2xl font-black text-purple-700 mt-0.5" id="secStatLockedAccounts">0</div>
+                  <div class="text-[10px] text-purple-600 mt-0.5">Auto-lockout active</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200">
+                  <div class="text-[11px] text-indigo-900 font-semibold">Session Timeout</div>
+                  <div class="text-2xl font-black text-indigo-700 mt-0.5" id="secStatSessionTimeout">30m</div>
+                  <div class="text-[10px] text-indigo-600 mt-0.5">Auto-expire inactive</div>
+                </div>
+              </div>
+
+              <!-- Locked / Flagged Users & RBAC Enforcement Matrix -->
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Flagged / Locked Accounts -->
+                <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-1.5">
+                      <i data-lucide="user-x" class="w-4 h-4 text-rose-600"></i>
+                      <span>Locked Accounts &amp; Failed Attempt Counters</span>
+                    </h3>
+                    <button onclick="switchAdminSection('users')" class="text-[11px] font-bold text-indigo-600 hover:underline">Reset Passwords →</button>
+                  </div>
+                  <div id="securityLockedUsersList" class="space-y-2 text-xs"></div>
+                </div>
+
+                <!-- Role-Based Access Control (RBAC) & Password Security Status -->
+                <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2.5 text-xs">
+                  <h3 class="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-1.5">
+                    <i data-lucide="key-round" class="w-4 h-4 text-indigo-700"></i>
+                    <span>Active Security Controls &amp; Firebase Rules</span>
+                  </h3>
+                  <div class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <span><strong>Password Storage:</strong> Bcrypt Salted Hash (10 Rounds, zero plain-text)</span>
+                    <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">ENFORCED</span>
+                  </div>
+                  <div class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <span><strong>Role Separation:</strong> Backend `requireRole()` + Firestore `firestore.rules`</span>
+                    <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">ENFORCED</span>
+                  </div>
+                  <div class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <span><strong>Audit Log Immutability:</strong> Write-once SHA-256 chain (`allow update, delete: if false`)</span>
+                    <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">PROTECTED</span>
+                  </div>
+                  <div class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <span><strong>Inactive Session Expiry:</strong> Automatic idle detector + JWT expiration</span>
+                    <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">ACTIVE</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Security Events & Login Attempts Table -->
+              <div class="space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h3 class="font-bold text-slate-900 text-sm">Security Events &amp; Login Attempt Monitor</h3>
+                  <div class="flex items-center gap-2 text-xs">
+                    <select id="securityFilterType" onchange="renderAdminSecurityTable()" class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
+                      <option value="all">All Security Events</option>
+                      <option value="LOGIN_FAILED">Failed Login Attempts</option>
+                      <option value="LOGIN_SUCCESS">Successful Logins</option>
+                      <option value="SUSPICIOUS_ACTIVITY">Suspicious Activities</option>
+                      <option value="ACCOUNT_LOCKED">Account Lockouts</option>
+                      <option value="PASSWORD_RESET">Password Resets</option>
+                      <option value="PERMISSION_CHANGE">Permission / Role Changes</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                  <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                      <tr>
+                        <th class="p-3">Timestamp</th>
+                        <th class="p-3">Event Type</th>
+                        <th class="p-3">Severity</th>
+                        <th class="p-3">Account / Email</th>
+                        <th class="p-3">Details</th>
+                        <th class="p-3">IP Address</th>
+                        <th class="p-3 text-right">Status / Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="securityEventsTableBody" class="divide-y divide-slate-100"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== ADMIN SECTION 6: DATA MANAGEMENT & BACKUP ==================== -->
+          <div id="adminSectionData" class="admin-section-panel hidden space-y-5">
+            <!-- Database Backup & Recovery Card -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                    <i data-lucide="hard-drive-download" class="w-5 h-5 text-emerald-700"></i>
+                    <span>Database Backup &amp; Disaster Recovery</span>
+                  </h2>
+                  <p class="text-xs text-slate-500">Create instant in-app restore points, export the entire database to JSON, or restore data from a backup file with confirmation safeguards.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button onclick="createInAppBackupSnapshot()" class="px-3.5 py-2 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition">
+                    <i data-lucide="bookmark-plus" class="w-4 h-4 text-ustp-goldLight"></i>
+                    <span>Create Snapshot Restore Point</span>
+                  </button>
+                  <button onclick="exportDatabaseBackup()" class="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Download Full JSON Backup</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Available In-App Backups List -->
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Available In-App Restore Points</h3>
+                <div id="adminBackupsList" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs"></div>
+              </div>
+            </div>
+
+            <!-- System Records CRUD Manager -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div>
+                  <h2 class="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
+                    <i data-lucide="folder-kanban" class="w-5 h-5 text-indigo-700"></i>
+                    <span>Authorized System Records Management</span>
+                  </h2>
+                  <p class="text-xs text-slate-500">View, add, edit, export, or delete system records across Requests, Clinical Records, and Certificates.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button onclick="exportCurrentCollectionCsv()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="file-Spreadsheet" class="w-3.5 h-3.5"></i>
+                    <span>Export Table CSV</span>
+                  </button>
+                  <button id="btnAddAdminRecord" onclick="openAdminRecordModal()" class="px-3.5 py-1.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                    <span>Add Record</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Collection Tabs & Search -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-1.5 overflow-x-auto text-xs font-bold">
+                  <button onclick="switchDataRecordTab('requests')" id="dataTabBtnRequests" class="data-col-tab px-3.5 py-2 rounded-xl bg-ustp-navy text-white transition">
+                    Checkup Requests
+                  </button>
+                  <button onclick="switchDataRecordTab('clinicalRecords')" id="dataTabBtnClinical" class="data-col-tab px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+                    Clinical Records
+                  </button>
+                  <button onclick="switchDataRecordTab('certificates')" id="dataTabBtnCertificates" class="data-col-tab px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+                    Medical Certificates
+                  </button>
+                </div>
+                <div class="relative w-full sm:w-64">
+                  <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+                  <input type="text" id="dataRecordsSearch" oninput="renderAdminDataRecordsTable()" placeholder="Search records..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                </div>
+              </div>
+
+              <!-- System Records Table -->
+              <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="w-full text-left text-xs">
+                  <thead id="adminDataRecordsTableHead" class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200"></thead>
+                  <tbody id="adminDataRecordsTableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== ADMIN SECTION 7: NOTIFICATIONS & ANNOUNCEMENTS ==================== -->
+          <div id="adminSectionAnnouncements" class="admin-section-panel hidden space-y-5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              <!-- Create / Edit Announcement Form -->
+              <div class="lg:col-span-5 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+                <div class="border-b border-slate-100 pb-3">
+                  <h2 id="announcementFormHeading" class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    <i data-lucide="megaphone" class="w-5 h-5 text-amber-600"></i>
+                    <span>Create System Announcement</span>
+                  </h2>
+                  <p class="text-xs text-slate-500">Broadcast health advisories or system notices to all users, Students, or Health Personnel.</p>
+                </div>
+
+                <form id="adminAnnouncementForm" onsubmit="submitAdminAnnouncement(event)" class="space-y-3.5 text-xs">
+                  <input type="hidden" id="annEditId">
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Announcement Title</label>
+                    <input type="text" id="annTitleInput" placeholder="e.g. Dengue Prevention & Boarding House Inspection Schedule" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-ustp-navy focus:bg-white" required>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">Target Audience</label>
+                      <select id="annTargetRole" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
+                        <option value="all">🌐 All Users (Public, Students &amp; Personnel)</option>
+                        <option value="requester">🎓 Students Only</option>
+                        <option value="personnel">🩺 Health Personnel Only</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">Priority Level</label>
+                      <select id="annPriority" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
+                        <option value="info">ℹ️ General Info</option>
+                        <option value="warning">⚠️ Important Advisory</option>
+                        <option value="urgent">🚨 Urgent Health Alert</option>
+                        <option value="maintenance">🔧 System Maintenance</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Announcement Message</label>
+                    <textarea id="annMessageInput" rows="3" placeholder="Enter detailed announcement message..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-ustp-navy focus:bg-white" required></textarea>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">Schedule Date (Optional)</label>
+                      <input type="date" id="annScheduledAt" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    </div>
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">Expiration Date (Optional)</label>
+                      <input type="date" id="annExpiresAt" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    </div>
+                  </div>
+
+                  <div class="space-y-2 pt-1">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                      <input type="checkbox" id="annIsPinned" class="rounded text-ustp-navy">
+                      <span class="font-semibold text-slate-700">Pin announcement to top of user dashboards</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                      <input type="checkbox" id="annSendNotif" checked class="rounded text-ustp-navy">
+                      <span class="font-semibold text-slate-700">Send instant in-app bell notification to target users</span>
+                    </label>
+                  </div>
+
+                  <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" id="btnCancelAnnEdit" onclick="resetAnnouncementForm()" class="hidden px-3 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold">
+                      Cancel Edit
+                    </button>
+                    <button type="submit" id="btnSubmitAnnouncement" class="w-full py-2.5 px-4 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold flex items-center justify-center gap-1.5 shadow-sm transition">
+                      <i data-lucide="send" class="w-4 h-4 text-ustp-goldLight"></i>
+                      <span id="btnSubmitAnnouncementText">Publish &amp; Broadcast Announcement</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Published Announcements & Notification Broadcast History -->
+              <div class="lg:col-span-7 space-y-5">
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+                  <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="font-extrabold text-slate-900 text-base">Published Announcements</h3>
+                    <span class="text-xs text-slate-400">Displayed on user dashboards</span>
+                  </div>
+                  <div id="adminAnnouncementsList" class="space-y-3 text-xs"></div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+                  <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="font-extrabold text-slate-900 text-base">Recent Notification Dispatch History</h3>
+                    <span class="text-xs text-slate-400">Real-time bell alerts</span>
+                  </div>
+                  <div id="adminNotificationHistoryList" class="divide-y divide-slate-100 max-h-72 overflow-y-auto text-xs"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== ADMIN SECTION 8: SYSTEM SETTINGS ==================== -->
+          <div id="adminSectionSettings" class="admin-section-panel hidden space-y-6">
+            <div class="bg-white rounded-2xl p-5 sm:p-7 border border-slate-200 shadow-sm space-y-6">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                    <i data-lucide="settings" class="w-5 h-5 text-ustp-navy"></i>
+                    <span>System Settings &amp; Administrative Configuration</span>
+                  </h2>
+                  <p class="text-xs text-slate-500">Update system branding, account registration restrictions, session timeout, maintenance mode, and notification policies.</p>
+                </div>
+                <span id="sysSettingsLastUpdated" class="text-[11px] text-slate-400 font-mono">Synced with Firebase &amp; Disk</span>
+              </div>
+
+              <form id="adminSystemSettingsForm" onsubmit="saveAdminSystemSettings(event)" class="space-y-6 text-xs">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  <!-- 1. Branding & General Clinic Info -->
+                  <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <i data-lucide="palette" class="w-4 h-4 text-indigo-600"></i>
+                      <span>1. System Name, Logo &amp; General Configuration</span>
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label class="block font-bold text-slate-700 mb-1">System Name</label>
+                        <input type="text" id="sysSettingName" value="VitaCall" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold" required>
+                      </div>
+                      <div>
+                        <label class="block font-bold text-slate-700 mb-1">Campus Badge Label</label>
+                        <input type="text" id="sysSettingCampus" value="Villanueva Campus" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl" required>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">System Subtitle / Tagline</label>
+                      <input type="text" id="sysSettingSubtitle" value="Mobile Health Request & Monitoring" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl">
+                    </div>
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">System Logo Path or Data URL</label>
+                      <div class="flex gap-2">
+                        <input type="text" id="sysSettingLogo" value="assets/ustp-logo.svg" class="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl font-mono text-[11px]">
+                        <button type="button" onclick="document.getElementById('sysSettingLogo').value='assets/ustp-logo.svg'" class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-[10px]">USTP</button>
+                        <button type="button" onclick="document.getElementById('sysSettingLogo').value='assets/clinic-seal.svg'" class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-[10px]">Clinic Seal</button>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label class="block font-bold text-slate-700 mb-1">Clinic Hotline</label>
+                        <input type="text" id="sysSettingClinicHotline" value="0920-111-8899" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl">
+                      </div>
+                      <div>
+                        <label class="block font-bold text-slate-700 mb-1">Emergency MDRRMO Hotline</label>
+                        <input type="text" id="sysSettingEmergencyHotline" value="0917-882-8911" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl">
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label class="block font-bold text-slate-700 mb-1">Clinic Operating Hours</label>
+                        <input type="text" id="sysSettingHours" value="Monday - Saturday, 7:00 AM - 7:00 PM" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl">
+                      </div>
+                      <div>
+                        <label class="block font-bold text-slate-700 mb-1">Certificate Validity (Days)</label>
+                        <input type="number" id="sysSettingCertDays" value="7" min="1" max="60" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 2. Account Restrictions & Session Timeout -->
+                  <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <i data-lucide="user-lock" class="w-4 h-4 text-rose-600"></i>
+                      <span>2. Account Restrictions &amp; Session Timeout</span>
+                    </h3>
+                    <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                      <div>
+                        <div class="font-bold text-slate-800">Allow Student Self-Registration</div>
+                        <div class="text-[11px] text-slate-500">Enable boarding students to register via the portal</div>
+                      </div>
+                      <input type="checkbox" id="sysSettingAllowReg" checked class="w-4 h-4 rounded text-ustp-navy">
+                    </label>
+                    <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                      <div>
+                        <div class="font-bold text-slate-800">Require Admin Approval for New Accounts</div>
+                        <div class="text-[11px] text-slate-500">Place newly registered accounts in Pending status until approved</div>
+                      </div>
+                      <input type="checkbox" id="sysSettingRequireApproval" class="w-4 h-4 rounded text-ustp-navy">
+                    </label>
+                    <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                      <div>
+                        <div class="font-bold text-slate-800">Enforce @ustp.edu.ph Email Domain</div>
+                        <div class="text-[11px] text-slate-500">Restrict student registration to official USTP email addresses</div>
+                      </div>
+                      <input type="checkbox" id="sysSettingEnforceEmail" class="w-4 h-4 rounded text-ustp-navy">
+                    </label>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                      <div>
+                        <label class="block font-bold text-slate-700 mb-1">Max Failed Logins</label>
+                        <input type="number" id="sysSettingMaxFailed" value="5" min="2" max="20" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold">
+                      </div>
+                      <div>
+                        <label class="block font-bold text-slate-700 mb-1">Lockout (Minutes)</label>
+                        <input type="number" id="sysSettingLockoutMins" value="15" min="1" max="1440" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold">
+                      </div>
+                      <div>
+                        <label class="block font-bold text-slate-700 mb-1">Session Timeout (Min)</label>
+                        <input type="number" id="sysSettingSessionTimeout" value="30" min="5" max="720" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 3. Notification Settings & Maintenance Mode -->
+                  <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <i data-lucide="bell" class="w-4 h-4 text-amber-600"></i>
+                      <span>3. Notification Policy &amp; Maintenance Mode</span>
+                    </h3>
+                    <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                      <div>
+                        <div class="font-bold text-slate-800">Enable Global Announcements Banner</div>
+                        <div class="text-[11px] text-slate-500">Display active health announcements on user dashboards</div>
+                      </div>
+                      <input type="checkbox" id="sysSettingEnableAnnouncements" checked class="w-4 h-4 rounded text-ustp-navy">
+                    </label>
+                    <label class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer">
+                      <div>
+                        <div class="font-bold text-slate-800">Auto-Notify All Personnel on Severe Cases</div>
+                        <div class="text-[11px] text-slate-500">Dispatch high-priority alert to all responders on Severe urgency</div>
+                      </div>
+                      <input type="checkbox" id="sysSettingAutoNotifySevere" checked class="w-4 h-4 rounded text-ustp-navy">
+                    </label>
+
+                    <!-- Maintenance Mode Control -->
+                    <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
+                      <label class="flex items-center justify-between cursor-pointer">
+                        <div>
+                          <div class="font-extrabold text-rose-900">System Maintenance Mode</div>
+                          <div class="text-[11px] text-rose-700">Temporarily restrict non-admin logins &amp; new request submissions</div>
+                        </div>
+                        <input type="checkbox" id="sysSettingMaintenanceMode" class="w-4 h-4 rounded text-rose-600">
+                      </label>
+                      <div>
+                        <label class="block text-[11px] font-bold text-rose-900 mb-1">Maintenance Notice Message</label>
+                        <textarea id="sysSettingMaintenanceMsg" rows="2" class="w-full px-2.5 py-1.5 bg-white border border-rose-200 rounded-lg text-xs"></textarea>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 4. System Information & Firebase Integration Diagnostics -->
+                  <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <h3 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <i data-lucide="cpu" class="w-4 h-4 text-teal-600"></i>
+                      <span>4. System Information &amp; Firebase Diagnostics</span>
+                    </h3>
+                    <div id="adminSystemInfoCard" class="space-y-2 text-xs">
+                      <!-- Populated dynamically via JS -->
+                    </div>
+                  </div>
+
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button type="submit" id="btnSaveSystemSettings" class="px-6 py-3 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                    <i data-lucide="save" class="w-4 h-4 text-ustp-goldLight"></i>
+                    <span>Save All System Settings</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
@@ -691,6 +2290,42 @@
           <!-- Task 5: Profile Picture Upload Section -->
           <div id="profilePicSection"></div>
 
+          <!-- Doctor Digital Signature Section (Visible only for Doctor role) -->
+          <div id="doctorSignatureProfileCard" class="hidden bg-blue-50/70 p-4 rounded-2xl border border-blue-200 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 class="font-extrabold text-blue-950 text-xs sm:text-sm flex items-center gap-1.5">
+                  <i data-lucide="pen-tool" class="w-4 h-4 text-blue-700"></i>
+                  <span>Doctor Digital Signature (Encrypted at Rest)</span>
+                </h3>
+                <p class="text-[11px] text-slate-600">Draw your signature below or upload an image to apply it to medical certificates with one click.</p>
+              </div>
+              <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold self-start sm:self-center">AES-256 Encrypted</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+              <div class="space-y-2">
+                <div class="text-[11px] font-bold text-slate-700">Draw Signature on Pad:</div>
+                <canvas id="profSignatureCanvas" width="320" height="100" class="w-full h-24 bg-white border-2 border-dashed border-blue-300 rounded-xl cursor-crosshair touch-none"></canvas>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button type="button" onclick="clearSignatureCanvas('profSignatureCanvas')" class="px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-bold">Clear Pad</button>
+                  <button type="button" onclick="saveDrawnProfileSignature()" class="px-3 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-[11px] font-bold">Save Drawn Signature</button>
+                  <label class="px-2.5 py-1 rounded-lg bg-white border border-blue-300 hover:bg-blue-50 text-blue-800 text-[11px] font-bold cursor-pointer">
+                    <span>Upload Image</span>
+                    <input type="file" id="profSignatureUpload" accept="image/png,image/jpeg,image/webp,image/svg+xml" onchange="handleSignatureFileUpload(event, 'profile')" class="hidden">
+                  </label>
+                </div>
+              </div>
+              <div class="space-y-1.5">
+                <div class="text-[11px] font-bold text-slate-700">Current Saved Digital Signature:</div>
+                <div class="h-24 bg-white border border-slate-200 rounded-xl p-2 flex items-center justify-center">
+                  <img id="profSavedSignaturePreview" src="" alt="Saved Doctor Signature" class="max-h-20 object-contain">
+                </div>
+                <div class="text-[10px] text-slate-500">Ready for 1-click application in Doctor Validation.</div>
+              </div>
+            </div>
+          </div>
+
           <!-- Change Password Section -->
           <div class="pt-2 border-t border-slate-100">
             <label class="block font-bold text-slate-700 mb-1">Update Password (optional)</label>
@@ -727,6 +2362,7 @@
     </section>
 
   </main>
+  </div>
 
   <!-- ==================== MOBILE BOTTOM NAVIGATION BAR ==================== -->
   <nav id="bottomNav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-around z-40 shadow-lg">
@@ -734,9 +2370,9 @@
       <i data-lucide="home" class="w-5 h-5 mb-0.5"></i>
       <span>Home</span>
     </button>
-    <button onclick="navigate('dashboard')" class="mobile-nav-btn flex flex-col items-center text-slate-600 hover:text-ustp-navy text-[10px] font-semibold" data-view="requests">
-      <i data-lucide="clipboard-list" class="w-5 h-5 mb-0.5"></i>
-      <span>Requests</span>
+    <button onclick="openCurrentDashboardSettings()" class="mobile-nav-btn flex flex-col items-center text-slate-600 hover:text-ustp-navy text-[10px] font-semibold" data-view="settings">
+      <i data-lucide="settings" class="w-5 h-5 mb-0.5"></i>
+      <span>Settings</span>
     </button>
     
     <!-- Big Floating Action Button in Middle -->
@@ -909,7 +2545,7 @@
     </div>
   </div>
 
-  <!-- ==================== MODAL 2: CLINICAL RECORD & CERTIFICATE ISSUANCE (HEALTH PERSONNEL) ==================== -->
+  <!-- ==================== MODAL 2: NURSE ON-SITE CHECKUP RECORDING (VITALS, OBSERVATIONS & NURSE NOTES ONLY) ==================== -->
   <div id="clinicalModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 flex items-center justify-center">
     <div class="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -918,8 +2554,8 @@
             <i data-lucide="stethoscope" class="w-5 h-5"></i>
           </div>
           <div>
-            <h2 class="text-base sm:text-lg font-bold text-slate-900">Clinical Examination &amp; Medical Certificate</h2>
-            <p class="text-xs text-slate-500">Record on-site vitals, diagnosis, and issue verifiable certificate</p>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">Record On-Site Checkup (Nurse Assessment)</h2>
+            <p class="text-xs text-slate-500">Record vital signs, physical observations, and nurse notes to create a draft for Doctor Validation</p>
           </div>
         </div>
         <button onclick="closeClinicalModal()" class="text-slate-400 hover:text-slate-600 p-1">
@@ -934,6 +2570,23 @@
           <span class="text-slate-500 ml-1" id="clinStudentId">(ID: 2023-XXXX)</span>
         </div>
         <div class="text-slate-600" id="clinBoardingHouse">Villa Rosa Boarding House</div>
+      </div>
+
+      <!-- Doctor Return Note Alert (Visible if Doctor returned this checkup to Nurse) -->
+      <div id="clinDoctorReturnAlert" class="hidden mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-1">
+        <div class="font-extrabold flex items-center gap-1.5">
+          <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600"></i>
+          <span>Returned by Doctor for Correction:</span>
+        </div>
+        <p id="clinDoctorReturnNoteText" class="font-medium"></p>
+      </div>
+
+      <!-- Role Restriction Notice -->
+      <div class="mt-3 p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-[11px] text-blue-900 flex items-start gap-2">
+        <i data-lucide="shield-alert" class="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5"></i>
+        <div>
+          <strong>Nurse Scope of Practice Notice:</strong> Nurses record objective vital signs, physical observations, and field notes only. Entering a <strong>Clinical Diagnosis</strong> or <strong>Prescribed Medication</strong> is restricted to the Campus Doctor. Submitting creates a draft certificate and moves this request to <strong>Awaiting Doctor Validation</strong>.
+        </div>
       </div>
 
       <form id="clinicalForm" onsubmit="submitClinicalRecord(event)" class="mt-4 space-y-4 text-xs sm:text-sm">
@@ -969,54 +2622,16 @@
           </div>
         </div>
 
-        <!-- Symptoms Observed & Clinical Notes -->
+        <!-- Physical Observations -->
         <div>
-          <label class="block font-bold text-slate-900 mb-1">Clinical Findings &amp; Physical Observations:</label>
-          <textarea id="clinSymptomsObserved" rows="2" placeholder="e.g. Flushed skin, dry lips, mild pharyngeal redness, clear lung sounds..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500" required></textarea>
+          <label class="block font-bold text-slate-900 mb-1">Physical Observations (On-Site Findings):</label>
+          <textarea id="clinSymptomsObserved" rows="3" placeholder="e.g. Flushed skin, dry lips, mild pharyngeal redness, clear lung sounds, warm to touch..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500" required></textarea>
         </div>
 
-        <!-- Clinical Diagnosis -->
+        <!-- Nurse Notes -->
         <div>
-          <label class="block font-bold text-slate-900 mb-1">Official Clinical Diagnosis:</label>
-          <input type="text" id="clinDiagnosis" placeholder="e.g. Acute Upper Respiratory Tract Infection (URTI) with Febrile Episode" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-teal-500" required>
-        </div>
-
-        <!-- Treatment & Care -->
-        <div>
-          <label class="block font-bold text-slate-900 mb-1">Prescription &amp; Medical Recommendations:</label>
-          <textarea id="clinPrescription" rows="3" placeholder="1. Paracetamol 500mg tab every 4-6h for temp > 37.8°C&#10;2. Oral rehydration salts in 1L water&#10;3. High fluid intake and strict bed rest" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500" required></textarea>
-        </div>
-
-        <!-- Academic Excuse & Certificate Duration -->
-        <div class="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-amber-950 text-xs">Medical Excuse Recommendation (For Professors)</span>
-            <label class="flex items-center space-x-1.5 text-xs cursor-pointer font-bold text-amber-900">
-              <input type="checkbox" id="clinIsExcused" checked class="rounded text-amber-600 focus:ring-amber-500">
-              <span>Excuse from classes</span>
-            </label>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-            <div>
-              <span class="text-[10px] text-amber-800 block">Start Date:</span>
-              <input type="date" id="clinExcusedStart" class="w-full px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs">
-            </div>
-            <div>
-              <span class="text-[10px] text-amber-800 block">End Date:</span>
-              <input type="date" id="clinExcusedEnd" class="w-full px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs">
-            </div>
-            <div>
-              <span class="text-[10px] text-amber-800 block">Days Excused:</span>
-              <input type="number" id="clinExcusedDays" value="3" min="1" max="14" class="w-full px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-bold">
-            </div>
-          </div>
-        </div>
-
-        <!-- Additional Remarks -->
-        <div>
-          <label class="block font-bold text-slate-900 mb-1">Follow-up / Landlord Instructions:</label>
-          <input type="text" id="clinRemarks" placeholder="e.g. Advised boarding house landlord to monitor student; contact clinic if fever persists beyond 48 hours." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500">
+          <label class="block font-bold text-slate-900 mb-1">Nurse Field Notes &amp; Boarding House Observations (Encrypted at Rest):</label>
+          <textarea id="clinNurseNotes" rows="2" placeholder="e.g. Patient resting in ventilated room. Administered initial oral rehydration packet; roommate available to assist." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500"></textarea>
         </div>
 
         <!-- Clinical Error Container -->
@@ -1028,8 +2643,165 @@
         <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
           <button type="button" onclick="closeClinicalModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition">Cancel</button>
           <button type="submit" id="btnIssueCert" class="px-5 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5">
-            <i data-lucide="badge-check" class="w-4 h-4 text-ustp-gold"></i>
-            <span>Sign &amp; Issue Medical Certificate</span>
+            <i data-lucide="send" class="w-4 h-4 text-ustp-gold"></i>
+            <span>Submit Checkup Draft for Doctor Validation</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 2B: DOCTOR VALIDATION, DIAGNOSIS, PRESCRIPTION & DIGITAL SIGNATURE ==================== -->
+  <div id="doctorValidateModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+            <i data-lucide="file-check-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Doctor Validation &amp; Official Certificate Sign-Off</h2>
+            <p class="text-xs text-slate-500">Review nurse checkup notes, enter diagnosis &amp; prescription, and digitally sign or return to nurse</p>
+          </div>
+        </div>
+        <button onclick="closeDoctorValidateModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Patient & Nurse Checkup Summary Box -->
+      <div class="mt-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+          <div>
+            <span class="font-extrabold text-slate-900 text-sm" id="docValStudentName">Student Name</span>
+            <span class="text-slate-500 ml-1" id="docValStudentId">(ID: 2023-XXXX)</span>
+          </div>
+          <span class="bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase" id="docValExaminerBadge">Examined by Nurse Sarah</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+          <div><strong class="text-slate-700">Recorded Vitals:</strong> <span id="docValVitalsSummary" class="font-mono text-slate-900">BP: 120/80</span></div>
+          <div><strong class="text-slate-700">Boarding House:</strong> <span id="docValBoardingHouse" class="text-slate-700">Villa Rosa</span></div>
+        </div>
+        <div class="text-[11px]"><strong class="text-slate-700">Nurse Physical Observations:</strong> <span id="docValNurseObservations" class="text-slate-800"></span></div>
+        <div class="text-[11px]"><strong class="text-slate-700">Nurse Notes:</strong> <span id="docValNurseNotes" class="text-slate-600 italic"></span></div>
+      </div>
+
+      <form id="doctorValidateForm" onsubmit="submitDoctorValidation(event)" class="mt-4 space-y-3.5 text-xs">
+        <input type="hidden" id="docValRequestId">
+
+        <!-- Official Clinical Diagnosis (Doctor Only) -->
+        <div>
+          <label class="block font-bold text-slate-900 mb-1">Official Clinical Diagnosis (Encrypted at Rest) *</label>
+          <input type="text" id="docValDiagnosis" placeholder="e.g. Acute Upper Respiratory Tract Infection (URTI) with High Febrile Episode" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-600" required>
+        </div>
+
+        <!-- Prescribed Medication (Doctor Only) -->
+        <div>
+          <label class="block font-bold text-slate-900 mb-1">Prescribed Medication &amp; Dosage (Encrypted at Rest) *</label>
+          <textarea id="docValMedication" rows="2" placeholder="e.g. 1. Paracetamol 500mg tab: 1 tab PO every 4-6 hours for fever > 37.8°C&#10;2. Cetirizine 10mg tab: 1 tab once daily at bedtime for 3 days" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-600" required></textarea>
+        </div>
+
+        <!-- Care Recommendations -->
+        <div>
+          <label class="block font-bold text-slate-900 mb-1">Medical Care Recommendations *</label>
+          <textarea id="docValCareRecs" rows="2" placeholder="e.g. Strict bed rest and room isolation for 3 days. High oral fluid intake with Oral Rehydration Salts." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-600" required></textarea>
+        </div>
+
+        <!-- Excused Dates & Certificate Validity Date -->
+        <div class="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-amber-950 text-xs">Academic Excuse Dates &amp; Certificate Validity</span>
+            <label class="flex items-center space-x-1.5 text-xs cursor-pointer font-bold text-amber-900">
+              <input type="checkbox" id="docValIsExcused" checked class="rounded text-amber-600">
+              <span>Excuse from classes</span>
+            </label>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <span class="text-[10px] text-amber-800 block">Excuse Start:</span>
+              <input type="date" id="docValExcusedStart" class="w-full px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <span class="text-[10px] text-amber-800 block">Excuse End:</span>
+              <input type="date" id="docValExcusedEnd" class="w-full px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <span class="text-[10px] text-amber-800 block">Days Excused:</span>
+              <input type="number" id="docValExcusedDays" value="3" min="1" max="14" class="w-full px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-bold">
+            </div>
+            <div>
+              <span class="text-[10px] text-amber-800 block">Valid Until:</span>
+              <input type="date" id="docValValidUntil" class="w-full px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-xs">
+            </div>
+          </div>
+        </div>
+
+        <!-- Doctor Remarks -->
+        <div>
+          <label class="block font-bold text-slate-900 mb-1">Physician Remarks / Follow-Up Instructions:</label>
+          <input type="text" id="docValRemarks" placeholder="e.g. Follow up at USTP Campus Health Center if febrile episodes persist beyond 48 hours." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+        </div>
+
+        <!-- Doctor Digital Signature Application (1-Click Apply, Draw, or Upload) -->
+        <div class="bg-blue-50/70 p-3.5 rounded-xl border border-blue-200 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span class="font-extrabold text-blue-950 text-xs flex items-center gap-1.5">
+                <i data-lucide="pen-tool" class="w-4 h-4 text-blue-700"></i>
+                <span>Physician Digital Signature</span>
+              </span>
+              <span class="text-[10px] text-slate-600">Apply your saved profile signature with one click, or draw/upload below</span>
+            </div>
+            <button type="button" onclick="applySavedDoctorSignatureOneClick()" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-300"></i>
+              <span>Apply Saved Signature (1-Click)</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+            <div>
+              <canvas id="docValSigCanvas" width="300" height="85" class="w-full h-20 bg-white border-2 border-dashed border-blue-300 rounded-xl cursor-crosshair touch-none"></canvas>
+              <div class="flex items-center gap-2 mt-1.5">
+                <button type="button" onclick="clearSignatureCanvas('docValSigCanvas')" class="px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-bold">Clear Pad</button>
+                <button type="button" onclick="useDrawnModalSignature()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-bold">Use Drawn Pad</button>
+                <label class="px-2 py-1 rounded bg-white border border-blue-300 text-blue-800 text-[10px] font-bold cursor-pointer">
+                  <span>Upload</span>
+                  <input type="file" accept="image/*" onchange="handleSignatureFileUpload(event, 'modal')" class="hidden">
+                </label>
+              </div>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-xl p-2 text-center space-y-1">
+              <div class="text-[10px] font-bold text-emerald-700" id="docValSigStatusLabel">✓ Digital Signature Applied</div>
+              <div class="h-14 flex items-center justify-center">
+                <img id="docValSignaturePreview" src="" alt="Doctor Signature Preview" class="max-h-12 object-contain">
+              </div>
+              <input type="hidden" id="docValSignatureData">
+            </div>
+          </div>
+        </div>
+
+        <!-- Return to Nurse Section -->
+        <div class="bg-rose-50/70 p-3 rounded-xl border border-rose-200 space-y-2">
+          <div class="font-bold text-rose-900 text-xs flex items-center gap-1.5">
+            <i data-lucide="corner-up-left" class="w-4 h-4 text-rose-600"></i>
+            <span>Need Nurse Correction? Return Checkup to Nurse</span>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input type="text" id="docValReturnNote" placeholder="Enter note for nurse (e.g. Please re-check blood pressure and respiratory rate)..." class="flex-1 px-3 py-1.5 bg-white border border-rose-200 rounded-lg text-xs">
+            <button type="button" onclick="returnCheckupToNurse()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 transition flex-shrink-0">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              <span>Return to Nurse</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="doctorValidateError" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl px-3 py-2.5 font-medium"></div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeDoctorValidateModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold">Cancel</button>
+          <button type="submit" id="btnDoctorSignAndSend" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-xs shadow-md transition flex items-center gap-1.5">
+            <i data-lucide="badge-check" class="w-4 h-4 text-ustp-goldLight"></i>
+            <span>Sign &amp; Send to Student</span>
           </button>
         </div>
       </form>
@@ -1047,6 +2819,10 @@
           <span class="font-bold text-sm">Official USTP Medical Certificate</span>
         </div>
         <div class="flex items-center space-x-2">
+          <button id="certDownloadPdfBtn" onclick="downloadCurrentCertificatePdf()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Download PDF</span>
+          </button>
           <button onclick="printCertificate()" class="bg-ustp-gold hover:bg-amber-500 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
             <i data-lucide="printer" class="w-4 h-4"></i>
             <span>Print Certificate</span>
@@ -1175,10 +2951,11 @@
             <!-- Campus Physician -->
             <div>
               <div class="h-10 flex items-end justify-center font-serif italic text-slate-700 text-sm">
-                <span class="border-b border-slate-800 pb-0.5 px-3">Dr. R. Santos, MD</span>
+                <img id="certDocDoctorSigImg" src="" alt="Doctor Digital Signature" class="hidden max-h-10 object-contain border-b border-slate-800 pb-0.5 px-2">
+                <span id="certDocDoctorSigText" class="border-b border-slate-800 pb-0.5 px-3">Dr. R. Santos, MD</span>
               </div>
-              <div class="font-bold text-slate-900 mt-1">Dr. Roberto Santos, MD</div>
-              <div class="text-[10px] text-slate-500">PRC MD-0054321</div>
+              <div class="font-bold text-slate-900 mt-1" id="certDocApproverName">Dr. Roberto Santos, MD</div>
+              <div class="text-[10px] text-slate-500" id="certDocApproverLicense">PRC MD-0054321</div>
               <div class="text-[9px] text-slate-400">Campus Medical Officer</div>
             </div>
           </div>
@@ -1190,14 +2967,310 @@
         </div>
 
         <!-- Bottom Action Bar (hidden in print) -->
-        <div class="no-print mt-4 pt-3 border-t border-slate-200 flex items-center justify-between">
+        <div class="no-print mt-4 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
           <span class="text-xs text-slate-500">Press <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-[10px] font-mono">Esc</kbd> to return</span>
-          <button onclick="closeCertificateModal()" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
-            <i data-lucide="x" class="w-4 h-4"></i>
-            <span>Close Preview</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="downloadCurrentCertificatePdf()" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>Download PDF</span>
+            </button>
+            <button onclick="closeCertificateModal()" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+              <i data-lucide="x" class="w-4 h-4"></i>
+              <span>Close Preview</span>
+            </button>
+          </div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4: ADMIN CREATE / EDIT USER ACCOUNT ==================== -->
+  <div id="adminUserModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-7 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
+            <i data-lucide="user-cog" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 id="adminUserModalTitle" class="text-base sm:text-lg font-bold text-slate-900">Create User Account</h2>
+            <p class="text-xs text-slate-500">Configure role, account status, and affiliation details</p>
+          </div>
+        </div>
+        <button onclick="closeAdminUserModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="adminUserForm" onsubmit="submitAdminUserForm(event)" class="mt-4 space-y-3.5 text-xs">
+        <input type="hidden" id="adminUserEditId">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+            <input type="text" id="adminUserName" placeholder="e.g. Juan Dela Cruz" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" required>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+            <input type="email" id="adminUserEmail" placeholder="j.delacruz@ustp.edu.ph" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" required>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Account Role</label>
+            <select id="adminUserRole" onchange="toggleAdminUserRoleFields()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold">
+              <option value="requester">🎓 Student (Requester)</option>
+              <option value="personnel">🩺 Campus Nurse (Personnel)</option>
+              <option value="doctor">👨‍⚕️ Campus Doctor (Physician)</option>
+              <option value="admin">🛡️ Administrator (Clinic Director)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Account Status</label>
+            <select id="adminUserStatus" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold">
+              <option value="active">🟢 Active</option>
+              <option value="inactive">🔴 Inactive</option>
+              <option value="pending">🟡 Pending Approval</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Phone Number</label>
+            <input type="tel" id="adminUserPhone" placeholder="+63 917 000 0000" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+          </div>
+        </div>
+
+        <div id="adminUserPasswordWrap">
+          <label class="block font-bold text-slate-700 mb-1">Initial Account Password</label>
+          <input type="password" id="adminUserPassword" placeholder="Minimum 6 characters (Bcrypt hashed)" minlength="6" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+        </div>
+
+        <!-- Student-only fields -->
+        <div id="adminUserStudentFields" class="space-y-3 bg-amber-50/60 p-3.5 rounded-xl border border-amber-200">
+          <div class="font-bold text-amber-950">Student &amp; Boarding House Details</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Student ID</label>
+              <input type="text" id="adminUserStudentId" placeholder="2026-30100" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Course &amp; Year</label>
+              <input type="text" id="adminUserCourse" placeholder="BS Information Technology - 3rd Year" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg">
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Boarding House &amp; Room #</label>
+            <input type="text" id="adminUserDorm" placeholder="Villa Rosa Boarding House (Rm 2)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Villanueva Street Address</label>
+            <input type="text" id="adminUserAddress" placeholder="Purok 2, Looc, Villanueva, Misamis Oriental" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <!-- Personnel/Admin-only fields -->
+        <div id="adminUserStaffFields" class="hidden space-y-3 bg-teal-50/60 p-3.5 rounded-xl border border-teal-200">
+          <div class="font-bold text-teal-950">Medical Staff / Administrative Credentials</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Official Title / Designation</label>
+              <input type="text" id="adminUserTitle" placeholder="Campus Health Nurse" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">PRC License Number</label>
+              <input type="text" id="adminUserLicense" placeholder="PRC RN-0982341" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeAdminUserModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold">Cancel</button>
+          <button type="submit" id="btnSaveAdminUser" class="px-5 py-2.5 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold shadow-sm transition flex items-center gap-1.5">
+            <i data-lucide="save" class="w-4 h-4 text-ustp-goldLight"></i>
+            <span>Save User Account</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 5: USER PERMISSIONS & ROLE MANAGER ==================== -->
+  <div id="userPermissionsModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Manage Role &amp; Access Permissions</h2>
+            <p id="permModalUserSubtitle" class="text-xs text-slate-500">User Name (role)</p>
+          </div>
+        </div>
+        <button onclick="closeUserPermissionsModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitUserPermissions(event)" class="mt-4 space-y-4 text-xs">
+        <input type="hidden" id="permUserId">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Assigned System Role</label>
+          <select id="permRoleSelect" onchange="applyRoleDefaultCheckboxes(this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold">
+            <option value="requester">🎓 Student (Requester)</option>
+            <option value="personnel">🩺 Campus Nurse (Personnel)</option>
+            <option value="doctor">👨‍⚕️ Campus Doctor (Physician)</option>
+            <option value="admin">🛡️ System Administrator (Clinic Director)</option>
+          </select>
+        </div>
+
+        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+          <div class="font-bold text-slate-700">Granular Access Permissions (Enforced on Backend &amp; UI):</div>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>Submit Boarding House Checkup Requests (`canSubmitRequests`)</span>
+            <input type="checkbox" id="perm_canSubmitRequests" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>View &amp; Print Medical Certificates (`canViewCertificates`)</span>
+            <input type="checkbox" id="perm_canViewCertificates" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>Update Personal Profile &amp; Photo (`canUpdateProfile`)</span>
+            <input type="checkbox" id="perm_canUpdateProfile" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>Triage &amp; Dispatch Health Requests (`canTriageRequests`)</span>
+            <input type="checkbox" id="perm_canTriageRequests" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>Record Clinical Exams &amp; Issue Certificates (`canIssueCertificates`)</span>
+            <input type="checkbox" id="perm_canIssueCertificates" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>Manage Users &amp; Account Roles (`canManageUsers`)</span>
+            <input type="checkbox" id="perm_canManageUsers" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>Generate &amp; Export System Reports (`canViewReports`)</span>
+            <input type="checkbox" id="perm_canViewReports" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>Manage Security &amp; Audit Logs (`canManageSecurity`)</span>
+            <input type="checkbox" id="perm_canManageSecurity" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>Manage System Data &amp; Backups (`canManageData`)</span>
+            <input type="checkbox" id="perm_canManageData" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+            <span>Configure Global System Settings (`canManageSettings`)</span>
+            <input type="checkbox" id="perm_canManageSettings" class="w-4 h-4 rounded text-indigo-700">
+          </label>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeUserPermissionsModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold">Cancel</button>
+          <button type="submit" id="btnSavePermissions" class="px-5 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold shadow-sm transition">
+            Save Permissions
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 6: VIEW INDIVIDUAL USER DETAILS ==================== -->
+  <div id="userDetailModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h2 class="text-base font-bold text-slate-900">User Account Dossier &amp; Status</h2>
+        <button onclick="document.getElementById('userDetailModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="userDetailModalBody" class="space-y-3 text-xs"></div>
+      <div class="flex justify-end pt-2 border-t border-slate-100">
+        <button onclick="document.getElementById('userDetailModal').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 7: SECURE ADMIN PASSWORD RESET ==================== -->
+  <div id="adminResetPasswordModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+            <i data-lucide="key-round" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Secure Password Reset</h2>
+            <p id="resetPwdUserSubtitle" class="text-xs text-slate-500">Reset password for account</p>
+          </div>
+        </div>
+        <button onclick="document.getElementById('adminResetPasswordModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form onsubmit="submitAdminPasswordReset(event)" class="mt-4 space-y-3.5 text-xs">
+        <input type="hidden" id="resetPwdUserId">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-900">
+          Passwords are encrypted immediately with <strong>Bcrypt (10-round salt)</strong> and are never stored in plain text. Resetting will also unlock the account if locked.
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">New Password (minimum 6 characters)</label>
+          <input type="password" id="resetPwdInput" placeholder="Enter new secure password" minlength="6" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" required>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="document.getElementById('adminResetPasswordModal').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold">Cancel</button>
+          <button type="submit" id="btnConfirmResetPwd" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-sm transition">
+            Reset Password
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 8: ADMIN ADD / EDIT SYSTEM RECORD ==================== -->
+  <div id="adminRecordModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h2 id="adminRecordModalTitle" class="text-base font-bold text-slate-900">Manage System Record</h2>
+        <button onclick="document.getElementById('adminRecordModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="adminRecordForm" onsubmit="submitAdminRecordForm(event)" class="mt-4 space-y-3 text-xs">
+        <input type="hidden" id="adminRecordCollection">
+        <input type="hidden" id="adminRecordId">
+        <div id="adminRecordDynamicFields" class="space-y-3"></div>
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="document.getElementById('adminRecordModal').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold shadow-sm transition">Save Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 9: REUSABLE CONFIRMATION DIALOG FOR DESTRUCTIVE ACTIONS ==================== -->
+  <div id="confirmActionModal" role="dialog" aria-modal="true" class="hidden fixed inset-0 z-[250] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+      <div class="flex items-start space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 id="confirmActionTitle" class="font-bold text-slate-900 text-base">Confirm Action</h3>
+          <p id="confirmActionMessage" class="text-xs text-slate-600 mt-1 leading-relaxed">Are you sure you want to proceed with this action?</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+        <button type="button" onclick="closeConfirmActionModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition">
+          Cancel
+        </button>
+        <button type="button" id="confirmActionExecuteBtn" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition">
+          Confirm
+        </button>
       </div>
     </div>
   </div>
