@@ -1803,26 +1803,9 @@ function renderStudentCertificates() {
   if (!container) return;
 
   // Students can never view or download unfinished drafts
-  const myCerts = (state.certificates || state.stats.certificates || []).filter(
+  const visibleCerts = (state.certificates || state.stats.certificates || []).filter(
     c => c.studentId === state.currentUser.studentId && c.status !== 'draft' && !c.isDraft
   );
-
-  const sampleCerts = [{
-    id: 'CERT-USTP-2026-001',
-    verificationCode: 'USTP-VC-98421',
-    studentName: 'Harvey Lloyd Pagtalunan',
-    studentId: '2023-30192',
-    courseAndYear: 'BS Information Technology - 3rd Year',
-    boardingHouse: 'Villa Rosa Boarding House (Rm 4), Purok 2, Looc, Villanueva',
-    issuedAt: '2026-10-28T08:50:00.000Z',
-    issuerName: 'Nurse Sarah Alcantara, RN',
-    diagnosis: 'Acute Upper Respiratory Tract Infection (URTI) with High Febrile Episode',
-    vitalSignsSummary: 'BP: 118/76 mmHg | Temp: 38.6 °C | Pulse: 86 bpm | SpO2: 98%',
-    excusedDates: 'October 28, 2026 to October 30, 2026 (3 Days)',
-    recommendations: 'Strict bed rest and home isolation for 3 days. Prescribed symptomatic antipyretics and oral hydration.'
-  }];
-
-  const visibleCerts = myCerts.length > 0 ? myCerts : (state.currentUser.id === 'usr_student1' ? sampleCerts : []);
 
   if (countBadge) countBadge.textContent = `${visibleCerts.length} certificate${visibleCerts.length === 1 ? '' : 's'}`;
 

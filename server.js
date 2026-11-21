@@ -10,11 +10,48 @@ const QRCode = require('qrcode');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'vitacall-ustp-secure-secret-2026';
-const ENCRYPTION_KEY = crypto.createHash('sha256').update(JWT_SECRET + '-at-rest-aes256').digest();
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'vitacall-db.json');
+const SECRETS_FILE = path.join(DATA_DIR, '.secrets.json');
+const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const SERVER_START_TIME = Date.now();
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Load or initialize encryption key from data/.secrets.json
+function loadOrCreateSecrets() {
+  try {
+    if (fs.existsSync(SECRETS_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(SECRETS_FILE, 'utf8'));
+      if (raw && raw.encryptionKey && raw.encryptionKey.length === 64) {
+        return {
+          jwtSecret: process.env.JWT_SECRET || raw.jwtSecret || 'vitacall-ustp-secure-secret-2026',
+          encryptionKey: Buffer.from(raw.encryptionKey, 'hex')
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Could not read .secrets.json, generating default:', err.message);
+  }
+  const jwtSecret = process.env.JWT_SECRET || 'vitacall-ustp-secure-secret-2026';
+  const keyBuf = crypto.createHash('sha256').update(jwtSecret + '-at-rest-aes256').digest();
+  try {
+    fs.writeFileSync(SECRETS_FILE, JSON.stringify({
+      encryptionKey: keyBuf.toString('hex'),
+      jwtSecret,
+      algorithm: 'aes-256-gcm',
+      createdAt: new Date().toISOString()
+    }, null, 2), 'utf8');
+  } catch (_) {}
+  return { jwtSecret, encryptionKey: keyBuf };
+}
+
+const SECRETS = loadOrCreateSecrets();
+const JWT_SECRET = SECRETS.jwtSecret;
+const ENCRYPTION_KEY = SECRETS.encryptionKey;
 
 // AES-256-GCM Encryption at Rest for Sensitive Medical Fields
 // (diagnosis, prescribedMedication, prescriptionAndCare, nurseNotes, symptomsObserved, doctorSignature)
@@ -265,6 +302,7 @@ let db = {
   announcements: [],
   securityEvents: [],
   backups: [],
+  revokedTokens: [],
   systemSettings: getDefaultSystemSettings()
 };
 
@@ -350,28 +388,6 @@ function ensureDbSchema() {
         changed = true;
       }
     });
-  }
-
-  // Ensure a second Campus Nurse exists so Doctor can choose among multiple nurses
-  if (!db.users.some(u => u.id === 'usr_nurse2' || (u.email && u.email.toLowerCase() === 'nurse.mark@ustp.edu.ph'))) {
-    const salt = bcrypt.genSaltSync(10);
-    db.users.push({
-      id: 'usr_nurse2',
-      name: 'Nurse Mark Villanueva, RN',
-      email: 'nurse.mark@ustp.edu.ph',
-      passwordHash: bcrypt.hashSync('password123', salt),
-      role: 'personnel',
-      status: 'active',
-      title: 'Campus Health Nurse - Field Response Unit',
-      licenseNumber: 'PRC RN-0994120',
-      phone: '+63 921 333 4455',
-      permissions: getDefaultPermissions('personnel'),
-      settings: getDefaultUserSettings('personnel'),
-      failedLoginAttempts: 0,
-      lockedUntil: null,
-      createdAt: '2026-10-02T08:00:00.000Z'
-    });
-    changed = true;
   }
 
   // Enrich users with status, permissions, settings, login security metadata
@@ -463,49 +479,25 @@ function ensureDbSchema() {
     changed = true;
   }
 
-  // Ensure securityEvents
-  if (!Array.isArray(db.securityEvents) || db.securityEvents.length === 0) {
-    const derivedEvents = (db.auditLogs || [])
-      .filter(l => ['USER_LOGIN', 'USER_LOGOUT', 'CERTIFICATE_VERIFY_FAILED', 'PROFILE_UPDATED'].includes(l.action))
-      .slice(0, 15)
-      .map((l, idx) => ({
-        id: `SEC-2026-${100 + idx}`,
-        timestamp: l.timestamp,
-        type: l.action === 'USER_LOGIN' ? 'LOGIN_SUCCESS' : (l.action === 'CERTIFICATE_VERIFY_FAILED' ? 'SUSPICIOUS_ACTIVITY' : l.action),
-        severity: l.action === 'CERTIFICATE_VERIFY_FAILED' ? 'medium' : 'low',
-        email: (db.users.find(u => u.id === l.userId) || {}).email || 'system@ustp.edu.ph',
-        userId: l.userId,
-        userName: l.userName,
-        userRole: l.userRole,
-        ipAddress: l.ipAddress || '127.0.0.1',
-        userAgent: l.userAgent || 'VitaCall Client',
-        details: l.details,
-        resolved: true
-      }));
-
-    // Add a realistic sample failed login event for monitoring visibility
-    derivedEvents.unshift({
-      id: 'SEC-2026-099',
-      timestamp: '2026-11-12T03:15:00.000Z',
-      type: 'LOGIN_FAILED',
-      severity: 'medium',
-      email: 'unknown.visitor@ustp.edu.ph',
-      userId: 'anonymous',
-      userName: 'Unrecognized Account Attempt',
-      userRole: 'anonymous',
-      ipAddress: '192.168.1.104',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      details: 'Failed login attempt: invalid credentials submitted for unknown.visitor@ustp.edu.ph.',
-      resolved: false
-    });
-
-    db.securityEvents = derivedEvents;
+  // Ensure securityEvents array
+  if (!Array.isArray(db.securityEvents)) {
+    db.securityEvents = [];
     changed = true;
   }
 
-  // Ensure backups array
+  // Ensure backups & revokedTokens arrays
   if (!Array.isArray(db.backups)) {
     db.backups = [];
+    changed = true;
+  }
+  if (!Array.isArray(db.revokedTokens)) {
+    db.revokedTokens = [];
+    changed = true;
+  }
+
+  // Ensure auditLogs starts from at least the genesis entry if empty
+  if (!Array.isArray(db.auditLogs) || db.auditLogs.length === 0) {
+    db.auditLogs = [createGenesisAuditLog()];
     changed = true;
   }
 
@@ -537,8 +529,31 @@ function generateHash(data) {
   return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
 }
 
-// Audit logger helper
+// Create a fresh Genesis Audit Log entry to start the cryptographic hash chain
+function createGenesisAuditLog() {
+  const genesis = {
+    id: 'AUD-GENESIS-001',
+    timestamp: new Date().toISOString(),
+    userId: 'system',
+    userName: 'VitaCall System',
+    userRole: 'system',
+    action: 'AUDIT_CHAIN_GENESIS',
+    targetEntity: 'auditLogs',
+    targetId: 'GENESIS',
+    details: 'Audit trail hash chain initialized from a fresh genesis entry.',
+    ipAddress: '127.0.0.1',
+    userAgent: 'VitaCall Security Kernel',
+    prevHash: '0000000000000000000000000000000000000000000000000000000000000000'
+  };
+  genesis.integrityHash = generateHash(genesis);
+  return genesis;
+}
+
+// Audit logger helper (chained to previous integrityHash)
 function logAudit(req, { userId, userName, userRole, action, targetEntity, targetId, details }) {
+  const prevHash = (Array.isArray(db.auditLogs) && db.auditLogs.length > 0 && db.auditLogs[0].integrityHash)
+    ? db.auditLogs[0].integrityHash
+    : '0000000000000000000000000000000000000000000000000000000000000000';
   const logEntry = {
     id: 'AUD-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
     timestamp: new Date().toISOString(),
@@ -550,7 +565,8 @@ function logAudit(req, { userId, userName, userRole, action, targetEntity, targe
     targetId: targetId || 'N/A',
     details: details || '',
     ipAddress: (req && (req.ip || (req.headers && req.headers['x-forwarded-for']))) || '127.0.0.1',
-    userAgent: (req && req.headers && req.headers['user-agent']) || 'VitaCall Client'
+    userAgent: (req && req.headers && req.headers['user-agent']) || 'VitaCall Client',
+    prevHash
   };
   logEntry.integrityHash = generateHash(logEntry);
   db.auditLogs.unshift(logEntry);
@@ -735,254 +751,30 @@ function seedDatabase() {
     }
   ];
 
-  // Requests
-  db.requests = [
-    {
-      id: 'REQ-2026-1001',
-      userId: 'usr_student1',
-      studentName: 'Harvey Lloyd Pagtalunan',
-      studentId: '2023-30192',
-      courseAndYear: 'BS Information Technology - 3rd Year',
-      phone: '+63 917 555 0192',
-      boardingHouse: 'Villa Rosa Boarding House (Rm 4)',
-      address: 'Purok 2, Looc, Villanueva, Misamis Oriental',
-      landmark: 'Behind Villa Rosa Bakery, near 7-Eleven Villanueva',
-      urgency: 'moderate',
-      symptoms: ['High Fever (38.8°C)', 'Severe Chills', 'Body Aches', 'Dizziness'],
-      symptomDetails: 'Started yesterday evening after rain. High fever not breaking with OTC paracetamol. Unable to walk to campus clinic, no companion in boarding house today.',
-      temperature: '38.8',
-      canWalk: false,
-      hasCompanion: false,
-      preferredTime: 'Morning (Urgent)',
-      status: 'completed',
-      assignedTo: {
-        id: 'usr_nurse1',
-        name: 'Nurse Sarah Alcantara, RN',
-        phone: '+63 920 111 8899'
-      },
-      timeline: [
-        { status: 'pending', timestamp: '2026-10-28T07:30:00.000Z', notes: 'Request submitted by student.' },
-        { status: 'assigned', timestamp: '2026-10-28T07:45:00.000Z', notes: 'Accepted by Nurse Sarah Alcantara.' },
-        { status: 'en_route', timestamp: '2026-10-28T08:05:00.000Z', notes: 'Nurse en route to Villa Rosa Boarding House with mobile kit.' },
-        { status: 'in_progress', timestamp: '2026-10-28T08:20:00.000Z', notes: 'Arrived on-site. Physical checkup and vitals measurement in progress.' },
-        { status: 'completed', timestamp: '2026-10-28T08:50:00.000Z', notes: 'Clinical checkup recorded and Medical Certificate issued.' }
-      ],
-      createdAt: '2026-10-28T07:30:00.000Z',
-      completedAt: '2026-10-28T08:50:00.000Z',
-      certificateId: 'CERT-USTP-2026-001'
-    },
-    {
-      id: 'REQ-2026-1002',
-      userId: 'usr_student2',
-      studentName: 'Franz Clyde Rian Go',
-      studentId: '2023-30145',
-      courseAndYear: 'BS Information Technology - 3rd Year',
-      phone: '+63 917 555 0145',
-      boardingHouse: 'Sunrise Student Dormitory (Rm 2B)',
-      address: 'Purok 4, Poblacion, Villanueva, Misamis Oriental',
-      landmark: 'Across Villanueva Central School, green gate',
-      urgency: 'severe',
-      symptoms: ['Acute Gastroenteritis / Diarrhea', 'Vomiting', 'Abdominal Cramps', 'Severe Weakness'],
-      symptomDetails: 'Frequent watery stools and vomiting since 3 AM. Feeling very dehydrated, faint when standing up. Roommate attending class and left rehydration salts.',
-      temperature: '37.8',
-      canWalk: false,
-      hasCompanion: false,
-      preferredTime: 'As soon as possible',
-      status: 'in_progress',
-      assignedTo: {
-        id: 'usr_nurse1',
-        name: 'Nurse Sarah Alcantara, RN',
-        phone: '+63 920 111 8899'
-      },
-      timeline: [
-        { status: 'pending', timestamp: '2026-10-29T06:15:00.000Z', notes: 'Request submitted.' },
-        { status: 'assigned', timestamp: '2026-10-29T06:30:00.000Z', notes: 'Triage reviewed, marked High Urgency. Assigned to Nurse Sarah.' },
-        { status: 'en_route', timestamp: '2026-10-29T06:50:00.000Z', notes: 'Personnel traveling to Sunrise Student Dormitory.' },
-        { status: 'in_progress', timestamp: '2026-10-29T07:10:00.000Z', notes: 'Currently conducting checkup and administering ORS solution.' }
-      ],
-      createdAt: '2026-10-29T06:15:00.000Z',
-      completedAt: null,
-      certificateId: null
-    },
-    {
-      id: 'REQ-2026-1003',
-      userId: 'usr_student3',
-      studentName: 'Jelly Quen Maniscan',
-      studentId: '2023-30208',
-      courseAndYear: 'BS Information Technology - 3rd Year',
-      phone: '+63 917 555 0208',
-      boardingHouse: 'St. Jude Boarding House (Rm 7)',
-      address: 'Purok 1, Katipunan, Villanueva, Misamis Oriental',
-      landmark: 'Behind USTP Villanueva gymnasium fence',
-      urgency: 'moderate',
-      symptoms: ['Persistent Dry Cough', 'Sore Throat', 'Mild Headache', 'Fatigue'],
-      symptomDetails: 'Started 2 days ago. Cough worsens at night. Throat is painful to swallow. Need checkup and excuse slip for missed Laboratory classes.',
-      temperature: '37.6',
-      canWalk: true,
-      hasCompanion: false,
-      preferredTime: '10:00 AM - 12:00 PM',
-      status: 'pending',
-      assignedTo: null,
-      timeline: [
-        { status: 'pending', timestamp: '2026-10-29T07:45:00.000Z', notes: 'Request submitted, waiting for health personnel assignment.' }
-      ],
-      createdAt: '2026-10-29T07:45:00.000Z',
-      completedAt: null,
-      certificateId: null
-    }
-  ];
+  // Clean slate: remove all requests, clinical records, certificates, notifications, revoked tokens, and backups
+  db.requests = [];
+  db.clinicalRecords = [];
+  db.certificates = [];
+  db.notifications = [];
+  db.securityEvents = [];
+  db.backups = [];
+  db.revokedTokens = [];
 
-  // Clinical Record for Completed Request 1
-  db.clinicalRecords = [
-    {
-      id: 'CR-2026-1001',
-      requestId: 'REQ-2026-1001',
-      patientId: 'usr_student1',
-      patientName: 'Harvey Lloyd Pagtalunan',
-      studentId: '2023-30192',
-      examinerId: 'usr_nurse1',
-      examinerName: 'Nurse Sarah Alcantara, RN',
-      examinerTitle: 'Campus Health Nurse - Off-Site Response Team',
-      examinerLicense: 'PRC RN-0982341',
-      dateExamined: '2026-10-28T08:35:00.000Z',
-      vitals: {
-        bp: '118/76 mmHg',
-        temp: '38.6 °C',
-        pulse: '86 bpm',
-        respRate: '19 cpm',
-        spo2: '98 %'
-      },
-      symptomsObserved: 'Flushed face, warm to touch, mild conjunctival injection, non-exudative pharyngeal erythema, clear lungs bilaterally.',
-      diagnosis: 'Acute Upper Respiratory Tract Infection (URTI) with High Febrile Episode',
-      prescriptionAndCare: '1. Paracetamol 500mg tab: 1 tab PO every 4-6 hours for fever > 37.8°C.\n2. Oral Rehydration Solution: 1 packet in 1 Liter clean water; drink frequently.\n3. Cetirizine 10mg: 1 tab once daily at bedtime for 3 days.\n4. Strict bed rest in well-ventilated boarding room; isolate temporarily from dorm mates.',
-      excusedDuration: {
-        isExcused: true,
-        startDate: '2026-10-28',
-        endDate: '2026-10-30',
-        daysCount: 3,
-        reason: 'Student is medically unfit for academic activities and physical attendance due to acute febrile viral illness.'
-      },
-      remarks: 'Student evaluated on-site in boarding room. Vital signs stabilized after initial physical cooling and hydration. Dorm landlord notified to assist if fever spikes.'
-    }
-  ];
+  // Re-start the audit trail hash chain from a fresh genesis entry
+  db.auditLogs = [createGenesisAuditLog()];
 
-  // Certificates
-  const sampleCert = {
-    id: 'CERT-USTP-2026-001',
-    verificationCode: 'USTP-VC-98421',
-    integrityHash: '8b7f29c4e019b8417f7634f19b2a7590d0b0f796417d7b4a282f18ef446d7b88',
-    requestId: 'REQ-2026-1001',
-    clinicalRecordId: 'CR-2026-1001',
-    studentName: 'Harvey Lloyd Pagtalunan',
-    studentId: '2023-30192',
-    courseAndYear: 'BS Information Technology - 3rd Year',
-    boardingHouse: 'Villa Rosa Boarding House (Rm 4), Purok 2, Looc, Villanueva',
-    issuedAt: '2026-10-28T08:50:00.000Z',
-    validUntil: '2026-11-04T23:59:59.000Z',
-    issuerName: 'Nurse Sarah Alcantara, RN',
-    issuerLicense: 'PRC RN-0982341',
-    approverName: 'Dr. Roberto Santos, MD',
-    approverLicense: 'PRC MD-0054321 - Campus Physician',
-    diagnosis: 'Acute Upper Respiratory Tract Infection (URTI) with High Febrile Episode',
-    vitalSignsSummary: 'BP: 118/76 mmHg | Temp: 38.6 °C | Pulse: 86 bpm | SpO2: 98%',
-    recommendations: 'Strict bed rest and home isolation for 3 days. Prescribed symptomatic antipyretics and oral hydration.',
-    excusedDates: 'October 28, 2026 to October 30, 2026 (3 Days)',
-    status: 'valid',
-    institution: 'University of Science and Technology of Southern Philippines (USTP) - Villanueva Campus',
-    clinicName: 'Health and Wellness Center - Off-Site Health Response Unit'
-  };
-
-  db.certificates = [sampleCert];
-
-  // Initial Audit Logs
-  db.auditLogs = [
-    {
-      id: 'AUD-001',
-      timestamp: '2026-10-28T07:30:00.000Z',
-      userId: 'usr_student1',
-      userName: 'Harvey Lloyd Pagtalunan',
-      userRole: 'requester',
-      action: 'REQUEST_CREATED',
-      targetEntity: 'request',
-      targetId: 'REQ-2026-1001',
-      details: 'Off-site health checkup request submitted for Villa Rosa Boarding House.',
-      ipAddress: '192.168.1.45',
-      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X)',
-      integrityHash: 'c4ca4238a0b923820dcc509a6f75849b'
-    },
-    {
-      id: 'AUD-002',
-      timestamp: '2026-10-28T07:45:00.000Z',
-      userId: 'usr_nurse1',
-      userName: 'Nurse Sarah Alcantara, RN',
-      userRole: 'personnel',
-      action: 'REQUEST_ASSIGNED',
-      targetEntity: 'request',
-      targetId: 'REQ-2026-1001',
-      details: 'Personnel accepted boarding house checkup assignment.',
-      ipAddress: '192.168.1.12',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      integrityHash: 'c81e728d9d4c2f636f067f89cc14862c'
-    },
-    {
-      id: 'AUD-003',
-      timestamp: '2026-10-28T08:45:00.000Z',
-      userId: 'usr_nurse1',
-      userName: 'Nurse Sarah Alcantara, RN',
-      userRole: 'personnel',
-      action: 'CLINICAL_RECORD_RECORDED',
-      targetEntity: 'clinicalRecord',
-      targetId: 'CR-2026-1001',
-      details: 'Vitals and diagnosis recorded: Acute URTI with Febrile Episode.',
-      ipAddress: '192.168.1.12',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      integrityHash: 'eccbc87e4b5ce2fe28308fd9f2a7baf3'
-    },
-    {
-      id: 'AUD-004',
-      timestamp: '2026-10-28T08:50:00.000Z',
-      userId: 'usr_nurse1',
-      userName: 'Nurse Sarah Alcantara, RN',
-      userRole: 'personnel',
-      action: 'CERTIFICATE_ISSUED',
-      targetEntity: 'certificate',
-      targetId: 'CERT-USTP-2026-001',
-      details: 'Tamper-resistant Medical Certificate generated with Code USTP-VC-98421.',
-      ipAddress: '192.168.1.12',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      integrityHash: 'a87ff679a2f3e71d9181a67b7542122c'
-    }
-  ];
-
-  // Notifications
-  db.notifications = [
-    {
-      id: 'NOTIF-01',
-      userId: 'usr_student1',
-      title: 'Medical Certificate Ready',
-      message: 'Your official USTP Medical Certificate (USTP-VC-98421) has been issued. You can view or download it now.',
-      type: 'success',
-      relatedRequestId: 'REQ-2026-1001',
-      targetRoute: 'dashboard',
-      isRead: true,
-      createdAt: '2026-10-28T08:50:00.000Z'
-    },
-    {
-      id: 'NOTIF-02',
-      userId: 'usr_student2',
-      title: 'Health Personnel En Route',
-      message: 'Nurse Sarah Alcantara is en route to Sunrise Student Dormitory.',
-      type: 'info',
-      relatedRequestId: 'REQ-2026-1002',
-      targetRoute: 'dashboard',
-      isRead: false,
-      createdAt: '2026-10-29T06:50:00.000Z'
-    }
-  ];
+  // Remove any old backup files in data/backups/ if directory exists
+  if (fs.existsSync(BACKUPS_DIR)) {
+    try {
+      for (const f of fs.readdirSync(BACKUPS_DIR)) {
+        fs.unlinkSync(path.join(BACKUPS_DIR, f));
+      }
+    } catch (_) {}
+  }
 
   ensureDbSchema();
   saveDb();
-  console.log('Database seeded with USTP Villanueva sample data.');
+  console.log('Database seeded with clean USTP Villanueva demo accounts and fresh genesis audit entry.');
 }
 
 loadDb();
