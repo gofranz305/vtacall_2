@@ -345,6 +345,16 @@ function clearSession(targetView = 'landing') {
   localStorage.removeItem('vitacall_token');
   localStorage.removeItem('vitacall_user');
   document.body.classList.remove('compact-mode', 'high-contrast-mode');
+
+  // Clear registration and login form inputs and default back to Sign In tab
+  const regForm = document.getElementById('registerForm');
+  const loginForm = document.getElementById('loginForm');
+  if (regForm) regForm.reset();
+  if (loginForm) loginForm.reset();
+  hideErrorMsg('loginError');
+  hideErrorMsg('registerError');
+  switchAuthTab('login');
+
   updateAuthUI(false);
   navigate(targetView);
 }
@@ -645,10 +655,17 @@ async function handleRegisterSubmit(e) {
     }
 
     if (data.pendingApproval) {
+      const regForm = document.getElementById('registerForm');
+      if (regForm) regForm.reset();
       showToast(data.message || 'Account registered and awaiting administrator approval.', 'info');
       switchAuthTab('login');
       return;
     }
+
+    // Clear the registration form and switch auth tab back to Sign In for future logouts
+    const regForm = document.getElementById('registerForm');
+    if (regForm) regForm.reset();
+    switchAuthTab('login');
 
     state.token = data.token;
     state.currentUser = data.user;

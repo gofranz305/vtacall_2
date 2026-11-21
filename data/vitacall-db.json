@@ -48,7 +48,8 @@
       "failedLoginAttempts": 0,
       "lockedUntil": null,
       "createdAt": "2026-10-20T08:00:00.000Z",
-      "lastLoginAt": "2026-10-20T08:00:00.000Z"
+      "lastLoginAt": "2026-11-21T18:14:11.150Z",
+      "lastLoginIp": "::1"
     },
     {
       "id": "usr_student2",
@@ -192,7 +193,8 @@
       "failedLoginAttempts": 0,
       "lockedUntil": null,
       "createdAt": "2026-10-01T08:00:00.000Z",
-      "lastLoginAt": "2026-10-01T08:00:00.000Z"
+      "lastLoginAt": "2026-11-21T18:14:22.657Z",
+      "lastLoginIp": "::1"
     },
     {
       "id": "usr_doc1",
@@ -204,7 +206,7 @@
       "title": "USTP Campus Physician / Medical Officer",
       "licenseNumber": "PRC MD-0054321",
       "phone": "+63 922 444 7788",
-      "doctorSignature": "ENC:v1:58766c317d21e2e5ebc500bc:a914cf6aa73f3a54785813c885db5acf:9be55a882d0377dcc95ac1feeccc2cce302862507d59eb5fdb9ab4021695a3d8c8853f7db915e4702b364ff29885c345b6e20c6ad2093164b9713192f2814f350f0cd3e1fe9bcd83ae22355acd6fad8b5ceb87ebdf10a5c3a3106ce1abff226c8204c8d67196b757c751970aa5f0232c212513a35d73d3a422a20c4f687db852e7031cb9f2109563d04a2e0a7813df1c192b55c3b29228435fb97f10a27c449dac9839d7befd25e2e72ee0ae54befdb1a0d4c0cfe5004e7d188e072a21ff715c13f6c1d69105e0d15096fd5cbab09857ef3de27e1e988a86956e7c5eaae5e3f6b8301aa45b21567977deaf410cafc97d046b016268fc7cde0da22518a46cd8db1beaae35d1fd401602d9ae5961e3e53d7ce7de9c3f283143dc76a5f32728056eebe1a1f04346e131529ad6c250a819260dfdc6efa48721ef3a15227eade2c995b90bc945c682595d32fd412b0a5b126d2b48949ecc3686bd07964899d26acd95b0c4057b3aa371c0ab164abd94b63907eb3960fa458c1a4e3330bf688a5298684498842ad59f845d77e759ae43f010aed4e38108a9c97e9274058d19e2ed48014c4bfb6b608e0bc04bfd621fcad068a04a4f6d757e5ce28f438d6bae4aa661792b00d9d87a7b5018a471fd9073866a5bb4b7edb3b9e0ad43a0294e3f4833fbb0741cafb908935835ebc8e9e861e243ec24d0941c5e86820ba803b4ddbde2b584b0a46c8764c0f941583f29b42062c70a35e35efd2def7e3604fca2c4b85444bcb351c7f74ae3a0f0d7228306b5dfd2e08fe6913f4254eb8ec246f1988640b3ea140f98d1e60da11d0ced9576d6e34ba793ddcede7caa6358f1158ab9cab9c11e94becfc33359655cba1d3794ceb61c3d13f66407622c293cd915eceba4b05424629f",
+      "doctorSignature": "ENC:v1:b8c7f3da9700ae82741af869:c480ff65188ae1db0382df3271469723:c4f5c65c30523e8b8a1af5fcffe0468eab225df63015397027cc5580f66eb84d886f8099a13c0d387355cfecd694c20cbc3baf45f20fe5e39ab601dd1f003da9cdccb10844186ac7c18eb7a8ba71a64608cd5761b7778013a5b87ceddf06d64626e73bce870fc832c663a82d135410bec575471fa733f8e2901d94bf978b549a79a40ec59715907e756aa01073b72daf334f3c3da43638d3a3d678c1f46b6e5678d62dd0e01fa32a23527fe6714bacd94af23c998f2f115dddf557c92d3fa5858a85cddac1f8f6838f8502658d3e2bb136efd8b26d6d28fd37a0200b2b3fe40fc6d6f6552a5bdd8545b81843b8e5ccf38994570dbf69bbaea1ac5826f0af0d9ffaff0cc47375753c2e9845031d1685add161cad6b783d7762ec8587eedefdb419a6ce6a2f26679c522a6f78be26e87e75b7c04977891c9d19f9e8be83687fe734251b19528eae20e1dd4b79d99f8605839c9a898f8cff16357a835f8c7e4209407704f06be1fed27b455be67d24f8f41569eb6e169c0bbbc68be128a20383cf5874e8552a28c5ce8935b6b780f3865958963a54aa7fbae1675f904b60a286211327a74615386600f3d430aa8aa9027b7ed9d1200d1fcd65db29d82c678b123ee479aa583e690f561f734b1b5e647f3d7474e68cd4f58e8b3069e81fc1b6bb445bc97482803bb977c8afc2f86a95c460b4781d9f01991d874df95e5b094f45810e49db2a55e563336a5a0ff902bd2defb3e09f457ced73ddd3e10ee55c288d947aabbea34aa5763eb33244e002e2499f7dcfafbaa400014d43ec6af6916aa59fae2908d191af08c13a5063ec5a67482ca9404e5addc0325fe612b242bb8028e384023288679d5bbec34e87752530952d3b83c3e32389715e00f35c8fe063023680e80",
       "permissions": {
         "canSubmitRequests": false,
         "canViewCertificates": true,
@@ -287,6 +289,66 @@
   "certificates": [],
   "auditLogs": [
     {
+      "id": "AUD-1795284865929-596",
+      "timestamp": "2026-11-21T18:14:25.929Z",
+      "userId": "usr_nurse1",
+      "userName": "Nurse Sarah Alcantara, RN",
+      "userRole": "personnel",
+      "action": "USER_LOGOUT",
+      "targetEntity": "user",
+      "targetId": "usr_nurse1",
+      "details": "User logged out successfully from web application.",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+      "prevHash": "f8762593cc2318c98b52e9f3bb58852959eafbc9267e9a015a5026da1aff1334",
+      "integrityHash": "ac293aab14afc0a520299cfa3ea90dfcd68d2b0da8fb173cdfb8b60070e9cbb1"
+    },
+    {
+      "id": "AUD-1795284862660-715",
+      "timestamp": "2026-11-21T18:14:22.660Z",
+      "userId": "usr_nurse1",
+      "userName": "Nurse Sarah Alcantara, RN",
+      "userRole": "personnel",
+      "action": "USER_LOGIN",
+      "targetEntity": "user",
+      "targetId": "usr_nurse1",
+      "details": "User logged in successfully via web interface.",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+      "prevHash": "0d3065fc5e404af40bfdccfd2700e1c0a1692ca6fec4528d97a888fca3e704f1",
+      "integrityHash": "f8762593cc2318c98b52e9f3bb58852959eafbc9267e9a015a5026da1aff1334"
+    },
+    {
+      "id": "AUD-1795284858435-773",
+      "timestamp": "2026-11-21T18:14:18.435Z",
+      "userId": "usr_student1",
+      "userName": "Harvey Lloyd Pagtalunan",
+      "userRole": "requester",
+      "action": "USER_LOGOUT",
+      "targetEntity": "user",
+      "targetId": "usr_student1",
+      "details": "User logged out successfully from web application.",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+      "prevHash": "cede4fd3929c8eedf74c2322fda6978a0b43ea27d314f779fe0359ceadea592a",
+      "integrityHash": "0d3065fc5e404af40bfdccfd2700e1c0a1692ca6fec4528d97a888fca3e704f1"
+    },
+    {
+      "id": "AUD-1795284851169-601",
+      "timestamp": "2026-11-21T18:14:11.169Z",
+      "userId": "usr_student1",
+      "userName": "Harvey Lloyd Pagtalunan",
+      "userRole": "requester",
+      "action": "USER_LOGIN",
+      "targetEntity": "user",
+      "targetId": "usr_student1",
+      "details": "User logged in successfully via web interface.",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+      "prevHash": "ef74d752a90c605cbb1744e4a62c8bb8c25ec5a3c0b77373cd092b9026a1bfc3",
+      "integrityHash": "cede4fd3929c8eedf74c2322fda6978a0b43ea27d314f779fe0359ceadea592a"
+    },
+    {
       "id": "AUD-GENESIS-001",
       "timestamp": "2026-11-21T18:11:34.706Z",
       "userId": "system",
@@ -333,7 +395,36 @@
       "expiresAt": null
     }
   ],
-  "securityEvents": [],
+  "securityEvents": [
+    {
+      "id": "SEC-1795284862661-398",
+      "timestamp": "2026-11-21T18:14:22.661Z",
+      "type": "LOGIN_SUCCESS",
+      "severity": "low",
+      "email": "nurse.sarah@ustp.edu.ph",
+      "userId": "usr_nurse1",
+      "userName": "Nurse Sarah Alcantara, RN",
+      "userRole": "personnel",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+      "details": "Authenticated session started for Nurse Sarah Alcantara, RN (personnel).",
+      "resolved": true
+    },
+    {
+      "id": "SEC-1795284851172-894",
+      "timestamp": "2026-11-21T18:14:11.172Z",
+      "type": "LOGIN_SUCCESS",
+      "severity": "low",
+      "email": "harvey.pagtalunan@ustp.edu.ph",
+      "userId": "usr_student1",
+      "userName": "Harvey Lloyd Pagtalunan",
+      "userRole": "requester",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+      "details": "Authenticated session started for Harvey Lloyd Pagtalunan (requester).",
+      "resolved": true
+    }
+  ],
   "backups": [],
   "revokedTokens": [],
   "systemSettings": {
