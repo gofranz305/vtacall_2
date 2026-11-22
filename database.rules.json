@@ -1,9 +1,9 @@
 {
   "rules": {
     "users": {
-      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'personnel')",
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'doctor' || root.child('users').child(auth.uid).child('role').val() === 'personnel')",
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'personnel')",
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'doctor' || root.child('users').child(auth.uid).child('role').val() === 'personnel')",
         ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (auth.uid === $uid && (!data.exists() || newData.child('role').val() === data.child('role').val())))"
       }
     },
@@ -15,11 +15,15 @@
     },
     "clinicalRecords": {
       ".read": "auth != null",
-      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'doctor' || root.child('users').child(auth.uid).child('role').val() === 'personnel')"
+      "$recId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'doctor' || (root.child('users').child(auth.uid).child('role').val() === 'personnel' && !newData.child('diagnosis').exists() && !newData.child('prescribedMedication').exists()))"
+      }
     },
     "certificates": {
       ".read": true,
-      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'doctor' || root.child('users').child(auth.uid).child('role').val() === 'personnel' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      "$certId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'doctor' || (root.child('users').child(auth.uid).child('role').val() === 'personnel' && newData.child('status').val() === 'draft') || (root.child('users').child(auth.uid).child('role').val() === 'admin' && newData.child('status').val() === 'revoked'))"
+      }
     },
     "auditLogs": {
       ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
@@ -49,4 +53,3 @@
     }
   }
 }
-

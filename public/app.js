@@ -5,6 +5,24 @@
 
 const API_BASE = '/api';
 
+// Ensure all same-origin API calls use HttpOnly cookies and never send "Bearer null"
+const _nativeFetch = window.fetch.bind(window);
+window.fetch = (input, init = {}) => {
+  const url = typeof input === 'string' ? input : (input && input.url) || '';
+  if (url.startsWith('/api') || url.startsWith(window.location.origin + '/api')) {
+    const nextInit = { ...init, credentials: 'same-origin' };
+    if (nextInit.headers && typeof nextInit.headers === 'object') {
+      const cleaned = { ...nextInit.headers };
+      if (cleaned['Authorization'] === 'Bearer null' || cleaned['Authorization'] === 'Bearer undefined') {
+        delete cleaned['Authorization'];
+      }
+      nextInit.headers = cleaned;
+    }
+    return _nativeFetch(input, nextInit);
+  }
+  return _nativeFetch(input, init);
+};
+
 // Application State
 let state = {
   currentUser: null,
@@ -48,37 +66,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load public landing info & system settings first
     await loadPublicLandingInfo();
 
-    const savedToken = localStorage.getItem('vitacall_token');
-    const savedUser = localStorage.getItem('vitacall_user');
-
-    if (savedToken && savedUser) {
-      try {
-        state.token = savedToken;
-        state.currentUser = JSON.parse(savedUser);
-
-        const meRes = await fetch(`${API_BASE}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${state.token}` }
-        });
-
-        if (meRes.ok) {
-          const freshUser = await meRes.json();
-          if (!freshUser.profilePicture && state.currentUser.profilePicture) {
-            freshUser.profilePicture = state.currentUser.profilePicture;
-          }
-          state.currentUser = freshUser;
-          localStorage.setItem('vitacall_user', JSON.stringify(state.currentUser));
-          applyUserDisplayPreferences();
-          updateAuthUI(true);
-          navigate('dashboard');
-          await refreshData(true);
-        } else {
-          clearSession('landing');
-        }
-      } catch (e) {
-        console.warn('Session verification failed:', e);
+    // Verify HttpOnly cookie session directly with /api/auth/me (no JWT stored in localStorage)
+    localStorage.removeItem('vitacall_token');
+    try {
+      const meRes = await fetch(`${API_BASE}/auth/me`, { credentials: 'same-origin' });
+      if (meRes.ok) {
+        const freshUser = await meRes.json();
+        state.currentUser = freshUser;
+        localStorage.setItem('vitacall_user', JSON.stringify(state.currentUser));
+        applyUserDisplayPreferences();
+        updateAuthUI(true);
+        navigate('dashboard');
+        await refreshData(true);
+      } else {
         clearSession('landing');
       }
-    } else {
+    } catch (e) {
+      console.warn('Session verification failed:', e);
       clearSession('landing');
     }
 
@@ -325,7 +329,7 @@ function quickLaunchDemo(email) {
 // =========================================================================
 
 function checkSessionInactivityTimeout() {
-  if (!state.token || !state.currentUser) return;
+  if (!state.currentUser) return;
   const timeoutMins = (state.systemSettings && Number(state.systemSettings.sessionTimeoutMinutes)) || 30;
   const maxIdleMs = timeoutMins * 60 * 1000;
   if (Date.now() - state.lastActivityTime > maxIdleMs) {
@@ -587,14 +591,14 @@ async function handleLoginSubmit(e) {
       return;
     }
 
-    state.token = data.token;
+    state.token = null;
     state.currentUser = data.user;
     state.lastActivityTime = Date.now();
     if (data.systemSettings) {
       state.systemSettings = data.systemSettings;
       applySystemSettingsBranding(data.systemSettings);
     }
-    localStorage.setItem('vitacall_token', data.token);
+    localStorage.removeItem('vitacall_token');
     localStorage.setItem('vitacall_user', JSON.stringify(data.user));
 
     applyUserDisplayPreferences();
@@ -603,6 +607,11 @@ async function handleLoginSubmit(e) {
     showToast(`Welcome back, ${state.currentUser.name}!`, 'success');
 
     navigate('dashboard');
+
+    if (data.mustChangePassword) {
+      const fModal = document.getElementById('forcePasswordChangeModal');
+      if (fModal) fModal.classList.remove('hidden');
+    }
 
     await refreshData(true);
   } catch (err) {
@@ -667,10 +676,10 @@ async function handleRegisterSubmit(e) {
     if (regForm) regForm.reset();
     switchAuthTab('login');
 
-    state.token = data.token;
+    state.token = null;
     state.currentUser = data.user;
     state.lastActivityTime = Date.now();
-    localStorage.setItem('vitacall_token', data.token);
+    localStorage.removeItem('vitacall_token');
     localStorage.setItem('vitacall_user', JSON.stringify(data.user));
 
     applyUserDisplayPreferences();
@@ -776,10 +785,10 @@ async function confirmLogout() {
 
   try {
     const logoutDelayMs = typeof APP_LOADING_DELAY_MS === 'number' ? APP_LOADING_DELAY_MS : 1000;
-    const logoutFetch = state.token
+    const logoutFetch = state.currentUser
       ? fetch(`${API_BASE}/auth/logout`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${state.token}` }
+          credentials: 'same-origin'
         }).catch(() => {})
       : Promise.resolve();
 
@@ -799,6 +808,45 @@ async function confirmLogout() {
   clearSession('auth');
   // Task 6: toast after logout
   showToast('You have been logged out', 'info');
+}
+
+async function submitForcePasswordChange(e) {
+  e.preventDefault();
+  const currentPassword = document.getElementById('forcePwdCurrent').value;
+  const newPassword = document.getElementById('forcePwdNew').value;
+  const errEl = document.getElementById('forcePwdError');
+  if (errEl) errEl.classList.add('hidden');
+
+  setButtonLoading('btnForcePwdSubmit', true);
+  try {
+    const res = await fetch(`${API_BASE}/auth/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if (errEl) {
+        errEl.textContent = data.error || 'Could not update password.';
+        errEl.classList.remove('hidden');
+      }
+      return;
+    }
+    if (data.user) {
+      state.currentUser = data.user;
+      localStorage.setItem('vitacall_user', JSON.stringify(data.user));
+    }
+    document.getElementById('forcePasswordChangeModal').classList.add('hidden');
+    showToast('Password updated! Your account is now secured.', 'success');
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = 'Server error updating password.';
+      errEl.classList.remove('hidden');
+    }
+  } finally {
+    setButtonLoading('btnForcePwdSubmit', false);
+  }
 }
 
 // =========================================================================
@@ -1091,7 +1139,7 @@ async function saveRoleDashboardSettings(e, role) {
 // =========================================================================
 
 async function refreshData(renderAll = true) {
-  if (!state.token || !state.currentUser) return;
+  if (!state.currentUser) return;
 
   try {
     const [reqRes, notifRes, annRes, certRes] = await Promise.all([
@@ -1769,13 +1817,13 @@ function renderStudentActiveRequest() {
         <div class="flex items-center space-x-2.5">
           <span class="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
           <div>
-            <span class="text-xs font-mono font-bold text-slate-500 uppercase tracking-wider">${activeReq.id}</span>
+            <span class="text-xs font-mono font-bold text-slate-500 uppercase tracking-wider">${escHtml(activeReq.id)}</span>
             <h3 class="font-bold text-slate-900 text-base">${activeReq.status === 'awaiting_doctor' ? 'Awaiting Doctor Validation & Signature' : 'Active Checkup in Progress'}</h3>
           </div>
         </div>
         <div class="flex items-center space-x-2">
           <span class="text-xs px-2.5 py-1 rounded-full font-bold uppercase ${activeReq.urgency === 'severe' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'}">
-            ${activeReq.urgency} Urgency
+            ${escHtml(activeReq.urgency)} Urgency
           </span>
           <span class="text-xs text-slate-400">• ${new Date(activeReq.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
@@ -1791,13 +1839,13 @@ function renderStudentActiveRequest() {
           <div class="w-10 h-10 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-base flex-shrink-0">🩺</div>
           <div>
             <div class="text-[10px] text-slate-500 uppercase font-semibold">Assigned Health Responder</div>
-            <div class="font-bold text-slate-900 text-sm">${activeReq.assignedTo ? activeReq.assignedTo.name : 'In Doctor\'s Pending Triage Queue — Awaiting Nurse Assignment...'}</div>
+            <div class="font-bold text-slate-900 text-sm">${activeReq.assignedTo ? escHtml(activeReq.assignedTo.name) : 'In Doctor\'s Pending Triage Queue — Awaiting Nurse Assignment...'}</div>
             <div class="text-slate-500 text-[11px]">${activeReq.status === 'awaiting_doctor' ? 'On-site checkup completed by nurse • Dr. Roberto Santos, MD validating & signing certificate' : (activeReq.assignedTo ? 'Campus Health & Wellness Response Team' : 'Campus Doctor notified for triage assignment')}</div>
           </div>
         </div>
         ${activeReq.assignedTo ? `
           <div class="flex items-center space-x-2 self-end sm:self-center">
-            <a href="tel:${activeReq.assignedTo.phone}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition shadow-sm">
+            <a href="tel:${escHtml(activeReq.assignedTo.phone)}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition shadow-sm">
               <i data-lucide="phone" class="w-3.5 h-3.5"></i>
               <span>Call Responder</span>
             </a>
@@ -1806,8 +1854,8 @@ function renderStudentActiveRequest() {
       </div>
       ${liveTimelineHtml}
       <div class="text-xs text-slate-600 grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-        <div><strong class="text-slate-800">Reported Symptoms:</strong> ${(activeReq.symptoms || []).join(', ')}</div>
-        <div><strong class="text-slate-800">Destination:</strong> ${activeReq.boardingHouse} (${activeReq.landmark || 'Villanueva'})</div>
+        <div><strong class="text-slate-800">Reported Symptoms:</strong> ${escHtml((activeReq.symptoms || []).join(', '))}</div>
+        <div><strong class="text-slate-800">Destination:</strong> ${escHtml(activeReq.boardingHouse)} (${escHtml(activeReq.landmark || 'Villanueva')})</div>
       </div>
     </div>
   `;
@@ -1846,14 +1894,14 @@ function renderStudentCertificates() {
         </div>
         <div>
           <div class="flex items-center space-x-2">
-            <span class="font-mono font-bold text-ustp-navy text-sm">${cert.verificationCode}</span>
+            <span class="font-mono font-bold text-ustp-navy text-sm">${escHtml(cert.verificationCode)}</span>
             <span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase">Official Valid</span>
           </div>
-          <div class="font-bold text-slate-900 mt-0.5 text-xs sm:text-sm">${cert.diagnosis}</div>
+          <div class="font-bold text-slate-900 mt-0.5 text-xs sm:text-sm">${escHtml(cert.diagnosis)}</div>
           <div class="text-slate-600 mt-1 flex flex-wrap items-center gap-2 text-[11px]">
-            <span>📅 Excused: <strong>${cert.excusedDates}</strong></span>
+            <span>📅 Excused: <strong>${escHtml(cert.excusedDates)}</strong></span>
             <span>•</span>
-            <span>Examined by: ${cert.issuerName}</span>
+            <span>Examined by: ${escHtml(cert.issuerName)}</span>
           </div>
         </div>
       </div>
@@ -4215,12 +4263,13 @@ function confirmDeleteUser(userId) {
 
   openConfirmActionModal(
     'Delete User Account Permanently',
-    `Are you sure you want to permanently delete the account for "${u.name}" (${u.email})? This administrative action will be recorded in the immutable audit trail.`,
-    async () => {
+    `Are you sure you want to permanently delete the account for "${u.name}" (${u.email})? This administrative action requires password re-entry and will be recorded in the audit trail.`,
+    async (confirmPassword) => {
       try {
         const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${state.token}` }
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmPassword })
         });
         const data = await res.json();
         if (!res.ok) {
@@ -4232,7 +4281,8 @@ function confirmDeleteUser(userId) {
       } catch (err) {
         showToast('Failed to delete user account', 'error');
       }
-    }
+    },
+    true
   );
 }
 
@@ -4260,6 +4310,35 @@ function exportUsersCsv() {
 // -------------------------------------------------------------------------
 // ADMIN SECTION 3: ACTIVITY LOGS & AUDIT TRAIL
 // -------------------------------------------------------------------------
+
+async function verifyAdminAuditChain() {
+  const banner = document.getElementById('auditChainVerifyResult');
+  setButtonLoading('btnVerifyAuditChain', true);
+  try {
+    const res = await fetch(`${API_BASE}/admin/audit-logs/verify`);
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Audit chain verification failed', 'error');
+      return;
+    }
+    if (banner) {
+      banner.classList.remove('hidden');
+      if (data.valid) {
+        banner.className = 'rounded-xl p-3 text-xs border bg-emerald-50 border-emerald-300 text-emerald-950 flex items-center justify-between';
+        banner.innerHTML = `<span><strong>✓ HMAC Audit Chain Valid:</strong> All ${escHtml(data.totalChecked)} entries verified from genesis with 0 broken links.</span><span class="font-mono text-[10px]">${new Date(data.verifiedAt).toLocaleTimeString()}</span>`;
+      } else {
+        banner.className = 'rounded-xl p-3 text-xs border bg-rose-50 border-rose-300 text-rose-950 flex items-center justify-between';
+        banner.innerHTML = `<span><strong>⚠ Tampering Detected:</strong> ${escHtml(data.tamperedEntries.length)} invalid entries, ${escHtml(data.brokenLinks)} broken links out of ${escHtml(data.totalChecked)}.</span>`;
+      }
+    }
+    showToast(data.valid ? 'Audit HMAC chain verified intact!' : 'Audit chain integrity warning!', data.valid ? 'success' : 'error');
+    await refreshData(false);
+  } catch (err) {
+    showToast('Error verifying audit chain', 'error');
+  } finally {
+    setButtonLoading('btnVerifyAuditChain', false);
+  }
+}
 
 function renderAdminAuditLogsTable() {
   const tbody = document.getElementById('auditTableBody');
@@ -4865,23 +4944,26 @@ async function createInAppBackupSnapshot() {
 function confirmRestoreSnapshot(snapId, snapName) {
   openConfirmActionModal(
     'Restore System Database from Snapshot',
-    `Are you sure you want to restore the entire database to "${snapName}"? Current records will be replaced with the snapshot state.`,
-    async () => {
+    `Are you sure you want to restore the entire database to "${snapName}"? Current records will be replaced with the snapshot state. Re-enter your Administrator password to proceed.`,
+    async (confirmPassword) => {
       try {
         const res = await fetch(`${API_BASE}/admin/backups/${snapId}/restore`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${state.token}` }
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmPassword })
         });
+        const data = await res.json();
         if (res.ok) {
           showToast(`Database restored from "${snapName}"`, 'success');
           await refreshData(true);
         } else {
-          showToast('Snapshot restore failed', 'error');
+          showToast(data.error || 'Snapshot restore failed', 'error');
         }
       } catch (err) {
         showToast('Error restoring snapshot', 'error');
       }
-    }
+    },
+    true
   );
 }
 
@@ -4999,8 +5081,7 @@ function renderAdminDataRecordsTable() {
           <td class="p-3 text-slate-800 max-w-xs truncate">${escHtml(c.diagnosis)}</td>
           <td class="p-3 text-slate-500">${new Date(c.dateExamined).toLocaleDateString()}</td>
           <td class="p-3 text-right space-x-1">
-            <button onclick="openAdminRecordModal('clinicalRecords', '${c.id}')" class="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px]">Edit</button>
-            <button onclick="confirmDeleteSystemRecord('clinicalRecords', '${c.id}')" class="px-2.5 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px]">Delete</button>
+            <span class="px-2 py-1 rounded bg-slate-100 text-slate-500 font-semibold text-[10px]">Clinical Record Read-Only</span>
           </td>
         </tr>
       `).join('');
@@ -5033,10 +5114,8 @@ function renderAdminDataRecordsTable() {
           <td class="p-3 text-slate-600">${escHtml(c.issuerName)}</td>
           <td class="p-3 uppercase font-bold text-[10px] text-emerald-700">${escHtml(c.status || 'valid')}</td>
           <td class="p-3 text-right space-x-1">
-            <button onclick="viewCertificate('${c.verificationCode}')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px]">View</button>
-            ${c.status !== 'revoked' ? `<button onclick="revokeAdminCertificate('${c.id}')" class="px-2.5 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[11px]">Revoke</button>` : ''}
-            <button onclick="openAdminRecordModal('certificates', '${c.id}')" class="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px]">Edit</button>
-            <button onclick="confirmDeleteSystemRecord('certificates', '${c.id}')" class="px-2.5 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px]">Delete</button>
+            <button onclick="viewCertificate('${escHtml(c.verificationCode)}')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px]">View</button>
+            ${c.status !== 'revoked' ? `<button onclick="revokeAdminCertificate('${escHtml(c.id)}')" class="px-2.5 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[11px]">Revoke</button>` : ''}
           </td>
         </tr>
       `).join('');
@@ -5190,20 +5269,25 @@ function confirmDeleteSystemRecord(collection, recordId) {
   openConfirmActionModal(
     'Delete System Record',
     `Are you sure you want to permanently delete record "${recordId}" from ${collection}? This action cannot be undone.`,
-    async () => {
+    async (confirmPassword) => {
       try {
         const res = await fetch(`${API_BASE}/admin/records/${collection}/${recordId}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${state.token}` }
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmPassword })
         });
         if (res.ok) {
           showToast(`Record ${recordId} deleted`, 'info');
           await refreshData(true);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast(data.error || 'Failed to delete record', 'error');
         }
       } catch (err) {
         showToast('Failed to delete record', 'error');
       }
-    }
+    },
+    true
   );
 }
 
@@ -5225,7 +5309,7 @@ function exportCurrentCollectionCsv() {
 }
 
 function exportDatabaseBackup() {
-  window.open(`${API_BASE}/admin/backup?token=${state.token}`, '_blank');
+  window.open(`${API_BASE}/admin/backup`, '_blank');
 }
 
 async function restoreDatabaseBackup(e) {
@@ -5238,19 +5322,21 @@ async function restoreDatabaseBackup(e) {
       openConfirmActionModal(
         'Restore Database from Backup File',
         `Are you sure you want to overwrite current database records with backup file "${file.name}"?`,
-        async () => {
+        async (confirmPassword) => {
           const res = await fetch(`${API_BASE}/admin/restore`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-            body: JSON.stringify(backupJson)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...backupJson, confirmPassword })
           });
           if (res.ok) {
             showToast('Database successfully restored!', 'success');
             await refreshData(true);
           } else {
-            showToast('Restore failed', 'error');
+            const data = await res.json().catch(() => ({}));
+            showToast(data.error || 'Restore failed', 'error');
           }
-        }
+        },
+        true
       );
     } catch (err) {
       showToast('Invalid backup JSON file', 'error');
@@ -5524,17 +5610,29 @@ async function saveAdminSystemSettings(e) {
 // REUSABLE CONFIRMATION DIALOG & CSV DOWNLOAD HELPER
 // =========================================================================
 
-function openConfirmActionModal(title, message, onConfirm) {
+function openConfirmActionModal(title, message, onConfirm, requirePassword = false) {
   const modal = document.getElementById('confirmActionModal');
   document.getElementById('confirmActionTitle').textContent = title;
   document.getElementById('confirmActionMessage').textContent = message;
   state._pendingConfirmFn = onConfirm;
 
+  const pwdWrap = document.getElementById('confirmActionPasswordWrap');
+  const pwdInput = document.getElementById('confirmActionPasswordInput');
+  if (pwdWrap && pwdInput) {
+    pwdInput.value = '';
+    pwdWrap.classList.toggle('hidden', !requirePassword);
+  }
+
   const btn = document.getElementById('confirmActionExecuteBtn');
   btn.onclick = async () => {
+    const enteredPwd = pwdInput ? pwdInput.value : '';
+    if (requirePassword && !enteredPwd) {
+      showToast('Please re-enter your Administrator password to confirm.', 'warning');
+      return;
+    }
     const fn = state._pendingConfirmFn;
     closeConfirmActionModal();
-    if (typeof fn === 'function') await fn();
+    if (typeof fn === 'function') await fn(enteredPwd);
   };
 
   modal.classList.remove('hidden');
@@ -5543,6 +5641,8 @@ function openConfirmActionModal(title, message, onConfirm) {
 function closeConfirmActionModal() {
   const modal = document.getElementById('confirmActionModal');
   if (modal) modal.classList.add('hidden');
+  const pwdInput = document.getElementById('confirmActionPasswordInput');
+  if (pwdInput) pwdInput.value = '';
   state._pendingConfirmFn = null;
 }
 

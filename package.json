@@ -10,7 +10,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "ng": "node -e \"const a=process.argv.slice(1); require('child_process').execSync((process.platform==='win32'?'ng.cmd ':'./ng ')+a.join(' '),{stdio:'inherit'})\"",
-    "build": "node --check server.js && node --check public/app.js && node --check public/config.js",
+    "build": "node --check server.js && node --check lib/config.js && node --check lib/crypto.js && node --check lib/logger.js && node --check lib/db.js && node --check lib/middleware.js && node --check lib/routes/auth.js && node --check lib/routes/clinical.js && node --check lib/routes/admin.js && node --check public/app.js && node --check public/config.js",
     "test": "node --test test/unit.test.js"
   },
   "keywords": [],
@@ -21,6 +21,8 @@
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "express": "^5.3.0",
+    "express-rate-limit": "^8.7.5",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "qrcode": "^1.5.4",
     "uuid": "^14.0.3"

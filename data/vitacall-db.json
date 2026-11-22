@@ -48,7 +48,7 @@
       "failedLoginAttempts": 0,
       "lockedUntil": null,
       "createdAt": "2026-10-20T08:00:00.000Z",
-      "lastLoginAt": "2026-11-22T11:27:43.385Z",
+      "lastLoginAt": "2026-11-22T14:34:28.262Z",
       "lastLoginIp": "::1"
     },
     {
@@ -206,7 +206,7 @@
       "title": "USTP Campus Physician / Medical Officer",
       "licenseNumber": "PRC MD-0054321",
       "phone": "+63 922 444 7788",
-      "doctorSignature": "ENC:v1:a020fe864a963883bba773fb:09f09a4b3ec0a1a6306a0e92863866fb:8ee1315d0cc973e8631bb8d53b296898e2d8eb57f7791e777ae73b946ef304c1febe05f8340273fff8d3279653664c3018d6a5518d4c5ffd791317db041bce641788bb7b79c357dea175870a1a06982f67f0b1487b22817e72ad18c296ef45ccebe4e2c9feb419f40460351b99ba58a5e25b5c835951289d97151921249c62012440139c0a1faf8a9c6dd3075f4566b23307077def8cd8744cc05ada959a49016e4e6fad116d1a2ce67e7c148e78fe22aaef6ce4c908bf0bec7dd3a6806d3cec13093f6ce1a8dd4d19f36433225de2806f615304955b56f44fd2688277de576d8af1f8aded2d43c944d558c2513081a8e3cd2e562be2d2c3fadf39058823ebc3c14ea61650f2d0c75c3dc0e16d3c37be5e5ee22d270a97a352676e12bc11151efaf6156c72e06e370caa2b3d41ed6d4fd95d23d527aa941d08856628302db792b352cceffc48e24f6b9d3d5f436704546da167634c40cfb4932b73d0d37d98f3b2e7c107e3d08596b15acd8080d67c6aaec23de00ec42dfdea6c244d15c904ec453c6569db53e62fc8df13ca81ee64baf130f08ffb59a2f7005f3ca0686879ab13af84c9cd15482f931089f8b8e02a9426a31baa54c790d722f8bc70e19438314c7ff02d05c59ddf70252d1a50d0ccfc074616dee5a20cf04ba618ff19f251c24aded5e84c96c2a0529f4fd58ca0e7ef2be94279dcbb434d07f7c3598700fc3ae250fdd314cfd66e10f43ced7a3c302b028223ce3a5ae59c8b8d6340c899375fb5f808dde9b4f01465b778636d6422126be469a5e7d4b620af0eae0ecc3fca6da4d9ed6eb44fd9100b702434199797d122a2a52877ce0e3d6da86e646b94785ffd904278dd1ba8d81a837712ff5be8f5484ce3889aeb81d69c7c4ad045b89a54467a",
+      "doctorSignature": "ENC:v1:cfafd13af991ea7182b862fc:e6d0409d4773d1c57be02a070c74fa7a:f190ee27767943a9c92820ac3550eb4ab52ea240d3ba1e32da9c2cc0cf18b09dcc5c13a3cf879bbef0ee55181b5a074eca4f71f99e1b6194defb066fa8c07332756234156a5e7e6f8cf61184d6f519672d57e4352f1d8563cec53f2aadbd140e8d8714bdb979c648906c7e35d7d5c13feede9c1028c0ff29e535210bda39ff98853609837696683bb648b3c7c97e674b6f370770ad0381a116325f1022193338c646570726ac9ebb8ed3fcfcd98f248bfdccaf0cb9f581e0d2a8d7e39a865f705b42724337a632a519891e9ad459594cb9d2079fbae54bde0144b67bc0ca290c45892dffd0c662ad5d154441b5e0558893915c910be904362b0650ed871207fb07d2d33da81ff77ec6fd6b23dcc91ebeca1ff4684db77687870082d32f7a65e20f29fbb42f40afa707507062669c026838a20548ac4a6990625ab7e1b422dc5331ec1487a1b43bd88a963653acbdbeb0f84d8160522f77cac0203d15114092a6facea03662b4fa1b4a81aa5c4e558a9eb86616f253f0dc09c102efe4e9a2577b34fffbb9efcfacdaef87dece91b22a713735ba74a9493dcdcfae603eeb0a4e55b8a1e81d94f9c1269129decd6a44877764da92bcca9cb9010d19cd605c07e8c803a2550612ca3c13d15be0a82cc3b29478f96388c71c865814343c781739f9fe0d07d359bc66f3db445cb14546715a4a5083ea850d1a02b23883d9b1ac796f81c18d7e5f9c2ad29367bc565c8f724b044c6a550b779383a2b25a81ae726a807154b17b1b44a62bd37ca511135c793518c433242921ac87666debdb934d458d864c542061d3325f98847f4b9ac83599468dd17e851cec4cbd23e73a223c9ab091c5cd84b8028cc0fe24b8d33d5744c0ddf63ba94b9e0b2ce42426f02ae12cd7e0ed1f",
       "permissions": {
         "canSubmitRequests": false,
         "canViewCertificates": true,
@@ -288,6 +288,21 @@
   "clinicalRecords": [],
   "certificates": [],
   "auditLogs": [
+    {
+      "id": "AUD-1795358068275-352",
+      "timestamp": "2026-11-22T14:34:28.275Z",
+      "userId": "usr_student1",
+      "userName": "Harvey Lloyd Pagtalunan",
+      "userRole": "requester",
+      "action": "USER_LOGIN",
+      "targetEntity": "user",
+      "targetId": "usr_student1",
+      "details": "User logged in successfully via web interface.",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+      "prevHash": "a86600df801650ed81e0ee8c0b716f33798a334fcbb49358b18d1d507aced833",
+      "integrityHash": "daef45a8e712bc391041dbde459b80a3968b1ad46eb4b17bce7debef9fbde7b5"
+    },
     {
       "id": "AUD-1795346892503-454",
       "timestamp": "2026-11-22T11:28:12.503Z",
@@ -456,6 +471,20 @@
     }
   ],
   "securityEvents": [
+    {
+      "id": "SEC-1795358068276-611",
+      "timestamp": "2026-11-22T14:34:28.276Z",
+      "type": "LOGIN_SUCCESS",
+      "severity": "low",
+      "email": "harvey.pagtalunan@ustp.edu.ph",
+      "userId": "usr_student1",
+      "userName": "Harvey Lloyd Pagtalunan",
+      "userRole": "requester",
+      "ipAddress": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+      "details": "Authenticated session started for Harvey Lloyd Pagtalunan (requester).",
+      "resolved": true
+    },
     {
       "id": "SEC-1795346863392-46",
       "timestamp": "2026-11-22T11:27:43.392Z",

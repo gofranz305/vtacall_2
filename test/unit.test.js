@@ -9,7 +9,17 @@ const indexHtmlPath = path.join(__dirname, '..', 'public', 'index.html');
 const stylesCssPath = path.join(__dirname, '..', 'public', 'styles.css');
 const configJsPath = path.join(__dirname, '..', 'public', 'config.js');
 
-const serverCode = fs.readFileSync(serverPath, 'utf8');
+const serverCode = [
+  'server.js',
+  'lib/config.js',
+  'lib/crypto.js',
+  'lib/logger.js',
+  'lib/db.js',
+  'lib/middleware.js',
+  'lib/routes/auth.js',
+  'lib/routes/clinical.js',
+  'lib/routes/admin.js'
+].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
 const appCode = fs.readFileSync(appJsPath, 'utf8');
 const html = fs.readFileSync(indexHtmlPath, 'utf8');
 const css = fs.readFileSync(stylesCssPath, 'utf8');
@@ -135,7 +145,7 @@ test('Rule 11: Dedicated Doctor role exists for Dr. Roberto Santos, MD', () => {
 
 // 12. New student checkup requests go to Doctor's Pending Triage Queue & Doctor assigns to nurse
 test('Rule 12: Doctor Pending Triage Queue and Nurse Assignment endpoint (/api/requests/:id/assign)', () => {
-  assert.match(serverCode, /app\.post\('\/api\/requests\/:id\/assign'/, 'server.js must provide Doctor nurse assignment endpoint');
+  assert.match(serverCode, /(?:app|router)\.post\('\/api\/requests\/:id\/assign'/, 'server must provide Doctor nurse assignment endpoint');
   assert.match(serverCode, /req\.user\.role !== 'doctor'/, 'Only the Doctor can assign pending requests to a campus nurse');
   assert.match(serverCode, /action:\s*'TRIAGE_ASSIGNED'/, 'Triage assignment must be logged in audit trail');
   assert.match(appCode, /assignRequestToNurse/, 'app.js must implement assignRequestToNurse for Doctor');
@@ -182,7 +192,7 @@ test('Rule 17: Doctor Validation enters Official Clinical Diagnosis, Prescribed 
 
 // 18. Doctor can draw or upload digital signature on profile and apply it to certificates with one click
 test('Rule 18: Doctor can draw or upload digital signature on profile and apply with one click', () => {
-  assert.match(serverCode, /app\.put\('\/api\/doctor\/signature'/, 'server.js must support saving doctor digital signature');
+  assert.match(serverCode, /(?:app|router)\.put\('\/api\/doctor\/signature'/, 'server must support saving doctor digital signature');
   assert.match(serverCode, /action:\s*'DOCTOR_SIGNATURE_UPDATED'/, 'Updating doctor signature must be logged in audit trail');
   assert.match(html, /id="profSignatureCanvas"/, 'Profile must include signature drawing canvas for Doctor');
   assert.match(html, /applySavedDoctorSignatureOneClick\(\)/, 'Doctor Validation modal must have 1-click Apply Saved Signature button');
@@ -191,15 +201,15 @@ test('Rule 18: Doctor can draw or upload digital signature on profile and apply 
 
 // 19. Only the Doctor can click Sign & Send to Student (Admin and Nurse are blocked)
 test('Rule 19: Only Doctor can Sign & Send to Student; Admin and Nurse are blocked', () => {
-  assert.match(serverCode, /app\.post\('\/api\/requests\/:id\/doctor-validate'/, 'server.js must expose doctor-validate endpoint');
-  assert.match(serverCode, /app\.post\('\/api\/certificates\/:id\/sign-and-send'/, 'server.js must expose sign-and-send endpoint');
+  assert.match(serverCode, /(?:app|router)\.post\('\/api\/requests\/:id\/doctor-validate'/, 'server must expose doctor-validate endpoint');
+  assert.match(serverCode, /(?:app|router)\.post\('\/api\/certificates\/:id\/sign-and-send'/, 'server must expose sign-and-send endpoint');
   assert.match(serverCode, /action:\s*'UNAUTHORIZED_SIGN_ATTEMPT'/, 'Server must block and audit non-doctor attempts to sign or send certificates');
   assert.match(serverCode, /action:\s*'CERTIFICATE_SIGNED_AND_SENT'/, 'Doctor signing and sending certificate must be logged in audit trail');
 });
 
 // 20. Doctor can Return to Nurse with a note so the nurse can fix and resubmit it
 test('Rule 20: Doctor can Return to Nurse with a note for correction and resubmission', () => {
-  assert.match(serverCode, /app\.post\('\/api\/requests\/:id\/return-to-nurse'/, 'server.js must implement return-to-nurse endpoint');
+  assert.match(serverCode, /(?:app|router)\.post\('\/api\/requests\/:id\/return-to-nurse'/, 'server must implement return-to-nurse endpoint');
   assert.match(serverCode, /request\.status = 'returned_to_nurse'/, 'Return to nurse must set status to returned_to_nurse');
   assert.match(serverCode, /action:\s*'CHECKUP_RETURNED_TO_NURSE'/, 'Returning checkup to nurse must be logged in audit trail');
   assert.match(appCode, /function returnCheckupToNurse/, 'app.js must implement returnCheckupToNurse');
@@ -231,7 +241,7 @@ test('Rule 23: Public QR verification rejects drafts and never exposes diagnosis
 
 // 24. Admin (Clinic Director) can revoke certificates but cannot sign on a doctor's behalf
 test('Rule 24: Admin can revoke certificates (/api/admin/certificates/:id/revoke) but cannot sign on a doctor\'s behalf', () => {
-  assert.match(serverCode, /app\.post\('\/api\/admin\/certificates\/:id\/revoke'/, 'server.js must provide Admin certificate revocation endpoint');
+  assert.match(serverCode, /(?:app|router)\.post\('\/api\/admin\/certificates\/:id\/revoke'/, 'server must provide Admin certificate revocation endpoint');
   assert.match(serverCode, /action:\s*'CERTIFICATE_REVOKED'/, 'Certificate revocation must be logged in audit trail');
   assert.match(serverCode, /canSignCertificates:\s*false/, 'Admin permissions must have canSignCertificates set to false');
   assert.match(appCode, /function revokeAdminCertificate/, 'app.js must provide revokeAdminCertificate for Admin');
@@ -252,4 +262,243 @@ test('Rule 25: Sensitive medical fields are AES-256-GCM encrypted at rest', () =
   // Verify on-disk database file stores encrypted sensitive fields at rest
   const rawDiskDb = fs.readFileSync(path.join(__dirname, '..', 'data', 'vitacall-db.json'), 'utf8');
   assert.match(rawDiskDb, /ENC:v1:/, 'vitacall-db.json on disk must store sensitive medical fields encrypted at rest');
+});
+
+// 26+. Behavioral HTTP Security & Workflow Integration Tests
+test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
+  const dbFilePath = path.join(__dirname, '..', 'data', 'vitacall-db.json');
+  let originalDbBackup = null;
+  let server;
+  let baseUrl;
+
+  test.before(async () => {
+    if (fs.existsSync(dbFilePath)) {
+      originalDbBackup = fs.readFileSync(dbFilePath);
+    }
+    const app = require('../server.js');
+    await new Promise((resolve) => {
+      server = app.listen(0, '127.0.0.1', () => {
+        const { port } = server.address();
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+  });
+
+  test.after(async () => {
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
+    }
+    if (originalDbBackup) {
+      fs.writeFileSync(dbFilePath, originalDbBackup);
+    }
+  });
+
+  async function loginAs(email, password = 'password123') {
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const setCookie = res.headers.get('set-cookie') || '';
+    const cookieMatch = setCookie.match(/vitacall_token=([^;]+)/);
+    const cookie = cookieMatch ? `vitacall_token=${cookieMatch[1]}` : '';
+    const data = await res.json();
+    return { res, data, cookie, token: data.token };
+  }
+
+  test('26. Registration rejects weak passwords with 400', async () => {
+    const res = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Weak Pass Student',
+        email: `weak.${Date.now()}@ustp.edu.ph`,
+        password: 'password123',
+        studentId: '2024-99999',
+        courseAndYear: 'BSIT - 1st Year',
+        boardingHouse: 'Test Dorm',
+        address: 'Purok 1, Villanueva',
+        phone: '09171234567'
+      })
+    });
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /Password must/i);
+  });
+
+  test('27. Tokens in ?token= query param are rejected (401); HttpOnly cookie & Bearer header accepted', async () => {
+    const { res, cookie, token } = await loginAs('harvey.pagtalunan@ustp.edu.ph');
+    assert.equal(res.status, 200);
+    assert.ok(cookie.includes('vitacall_token='), 'Login must set HttpOnly vitacall_token cookie');
+
+    const queryRes = await fetch(`${baseUrl}/api/auth/me?token=${encodeURIComponent(token)}`);
+    assert.equal(queryRes.status, 401, 'Query string ?token= must be rejected');
+
+    const cookieRes = await fetch(`${baseUrl}/api/auth/me`, {
+      headers: { Cookie: cookie }
+    });
+    assert.equal(cookieRes.status, 200, 'HttpOnly cookie must authenticate');
+  });
+
+  test('28. Logout revokes token so subsequent requests return 401', async () => {
+    const { cookie, token } = await loginAs('harvey.pagtalunan@ustp.edu.ph');
+    const logoutRes = await fetch(`${baseUrl}/api/auth/logout`, {
+      method: 'POST',
+      headers: { Cookie: cookie }
+    });
+    assert.equal(logoutRes.status, 200);
+
+    const afterRes = await fetch(`${baseUrl}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    assert.equal(afterRes.status, 401, 'Revoked token must be rejected after logout');
+  });
+
+  test('29. Security headers (CSP, X-Frame-Options, X-Content-Type-Options) are set', async () => {
+    const res = await fetch(`${baseUrl}/api/public/landing-info`);
+    assert.equal(res.status, 200);
+    assert.ok(res.headers.get('content-security-policy'), 'CSP header must be present');
+    assert.equal(res.headers.get('x-frame-options'), 'SAMEORIGIN');
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+  });
+
+  test('30. Full 4-role workflow, nurse diagnosis block, student draft block, admin immutability, and public QR verification', async () => {
+    const student = await loginAs('harvey.pagtalunan@ustp.edu.ph');
+    const doctor = await loginAs('dr.santos@ustp.edu.ph');
+    const nurse = await loginAs('nurse.sarah@ustp.edu.ph');
+    const admin = await loginAs('admin.clinic@ustp.edu.ph');
+
+    // Student creates request
+    const reqRes = await fetch(`${baseUrl}/api/requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: student.cookie },
+      body: JSON.stringify({
+        symptoms: ['Fever', 'Headache'],
+        urgency: 'moderate',
+        boardingHouse: 'Test Dormitory',
+        landmark: 'Near USTP Gate',
+        notes: 'Started this morning'
+      })
+    });
+    assert.equal(reqRes.status, 201);
+    const createdReqBody = await reqRes.json();
+    const request = createdReqBody.request || createdReqBody;
+
+    // Doctor assigns to Nurse Sarah
+    const assignRes = await fetch(`${baseUrl}/api/requests/${request.id}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: doctor.cookie },
+      body: JSON.stringify({ nurseId: nurse.data.user.id })
+    });
+    assert.equal(assignRes.status, 200);
+
+    // Nurse advances assigned -> en_route -> in_progress
+    const enRouteRes = await fetch(`${baseUrl}/api/requests/${request.id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie },
+      body: JSON.stringify({ status: 'en_route' })
+    });
+    assert.equal(enRouteRes.status, 200);
+
+    const inProgRes = await fetch(`${baseUrl}/api/requests/${request.id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie },
+      body: JSON.stringify({ status: 'in_progress' })
+    });
+    assert.equal(inProgRes.status, 200);
+
+    // Nurse attempts to submit diagnosis -> 403
+    const badCheckup = await fetch(`${baseUrl}/api/requests/${request.id}/clinical-record`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie },
+      body: JSON.stringify({
+        vitals: { temp: '38.2 C', bp: '110/70' },
+        diagnosis: 'Dengue',
+        prescribedMedication: 'Paracetamol'
+      })
+    });
+    assert.equal(badCheckup.status, 403);
+
+    // Nurse submits vitals & nurse notes only -> 200 + draft cert
+    const goodCheckup = await fetch(`${baseUrl}/api/requests/${request.id}/clinical-record`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie },
+      body: JSON.stringify({
+        vitals: { temp: '38.2 C', bp: '110/70', pulse: '88 bpm', spo2: '98%' },
+        symptomsObserved: 'Febrile, warm to touch',
+        nurseNotes: 'Mild fever, hydrated'
+      })
+    });
+    assert.equal(goodCheckup.status, 201);
+    const checkupBody = await goodCheckup.json();
+    const draftCertificate = checkupBody.draftCertificate || checkupBody.certificate;
+    assert.equal(draftCertificate.status, 'draft');
+
+    // Student cannot view draft certificate -> 403
+    const studentDraftRes = await fetch(`${baseUrl}/api/certificates/${draftCertificate.id}`, {
+      headers: { Cookie: student.cookie }
+    });
+    assert.equal(studentDraftRes.status, 403);
+
+    // Admin cannot sign & send -> 403, and cannot rewrite certificate via /api/admin/records -> 403
+    const adminSignRes = await fetch(`${baseUrl}/api/certificates/${draftCertificate.id}/sign-and-send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      body: JSON.stringify({})
+    });
+    assert.equal(adminSignRes.status, 403);
+
+    const adminEditCertRes = await fetch(`${baseUrl}/api/admin/records/certificates/${draftCertificate.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      body: JSON.stringify({ diagnosis: 'Tampered' })
+    });
+    assert.equal(adminEditCertRes.status, 403);
+
+    // Doctor validates, signs & sends to student
+    const docValRes = await fetch(`${baseUrl}/api/requests/${request.id}/doctor-validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: doctor.cookie },
+      body: JSON.stringify({
+        diagnosis: 'Acute Viral Febrile Illness',
+        prescribedMedication: 'Paracetamol 500mg every 6 hours PRN',
+        excusedDates: 'Nov 22-23, 2026',
+        validUntil: '2026-11-25',
+        recommendations: 'Rest and oral hydration',
+        doctorSignature: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+      })
+    });
+    assert.equal(docValRes.status, 200);
+    const { certificate } = await docValRes.json();
+    assert.match(certificate.verificationCode, /^USTP-VC-[0-9A-F]{12}$/);
+
+    // Public QR verification succeeds without exposing diagnosis or medication
+    const verifyRes = await fetch(`${baseUrl}/api/verify-certificate/${certificate.verificationCode}`);
+    assert.equal(verifyRes.status, 200);
+    const verifyBody = await verifyRes.json();
+    assert.equal(verifyBody.verified, true);
+    assert.equal(verifyBody.certificate.diagnosis, undefined);
+    assert.equal(verifyBody.certificate.prescribedMedication, undefined);
+  });
+
+  test('31. Admin audit chain verification succeeds', async () => {
+    const admin = await loginAs('admin.clinic@ustp.edu.ph');
+    const res = await fetch(`${baseUrl}/api/admin/audit-logs/verify`, {
+      headers: { Cookie: admin.cookie }
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.valid, true);
+  });
+
+  test('32. Destructive admin user deletion requires confirmPassword', async () => {
+    const admin = await loginAs('admin.clinic@ustp.edu.ph');
+    const res = await fetch(`${baseUrl}/api/admin/users/usr_student2`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      body: JSON.stringify({ confirmPassword: 'wrong-password' })
+    });
+    assert.equal(res.status, 403);
+  });
 });
