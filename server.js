@@ -3704,11 +3704,23 @@ app.use((req, res, next) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
-// Start Server
+// Start Server (binds to 0.0.0.0 so phones on the same Wi-Fi/hotspot can connect)
 if (require.main === module) {
-  app.listen(PORT, () => {
+  const os = require('os');
+  app.listen(PORT, '0.0.0.0', () => {
+    const nets = os.networkInterfaces();
+    const lanUrls = [];
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name] || []) {
+        if (net.family === 'IPv4' && !net.internal) {
+          lanUrls.push(`http://${net.address}:${PORT}`);
+        }
+      }
+    }
     console.log(`=======================================================`);
-    console.log(` VitaCall Server running at http://localhost:${PORT}`);
+    console.log(` VitaCall Server running!`);
+    console.log(` • Local PC:       http://localhost:${PORT}`);
+    lanUrls.forEach(url => console.log(` • Phone / Wi-Fi:  ${url}`));
     console.log(` USTP Villanueva Campus - Health Request & Monitoring`);
     console.log(`=======================================================`);
   });
