@@ -7,7 +7,7 @@ const path = require('path');
 const { PORT, NODE_ENV, IS_PROD, CORS_ORIGIN } = require('./lib/config');
 const { encryptField, decryptField, generateHmac } = require('./lib/crypto');
 const logger = require('./lib/logger');
-const { createScheduledDiskBackup } = require('./lib/db');
+const { createScheduledDiskBackup, syncNowToFirestore } = require('./lib/db');
 const { csrfProtection } = require('./lib/middleware');
 const createAuthRouter = require('./lib/routes/auth');
 const createClinicalRouter = require('./lib/routes/clinical');
@@ -145,6 +145,9 @@ if (require.main === module) {
     lanUrls.forEach(url => console.log(` • Phone / Wi-Fi:  ${url}`));
     console.log(` USTP Villanueva Campus - Health Request & Monitoring`);
     console.log(`=======================================================`);
+    syncNowToFirestore().then((synced) => {
+      if (synced) logger.info('FIREBASE_INITIAL_SYNC_COMPLETE', {});
+    });
   });
 }
 
