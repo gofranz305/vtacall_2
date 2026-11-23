@@ -232,7 +232,7 @@ test('Rule 22: Students are blocked from viewing or downloading unfinished draft
 
 // 23. Public QR verification only works for issued certificates and never exposes diagnosis or medication
 test('Rule 23: Public QR verification rejects drafts and never exposes diagnosis or prescribed medication', () => {
-  assert.match(serverCode, /if\s*\(!cert \|\| cert\.status === 'draft' \|\| cert\.isDraft === true\)/, 'Public verification must reject draft certificates');
+  assert.match(serverCode, /if\s*\(!cert \|\| cert\.status === 'draft' \|\| cert\.isDraft === true \|\| cert\.status === 'revoked'\)/, 'Public verification must reject draft and revoked certificates');
   assert.match(serverCode, /const sanitizedPublicCertificate = \{/, 'Public verification must return sanitized certificate object');
   const sanitizedBlock = serverCode.split('const sanitizedPublicCertificate = {')[1].split('};')[0];
   assert.ok(!sanitizedBlock.includes('diagnosis:'), 'Public verification response must NEVER include diagnosis');
@@ -300,11 +300,19 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    const setCookie = res.headers.get('set-cookie') || '';
-    const cookieMatch = setCookie.match(/vitacall_token=([^;]+)/);
-    const cookie = cookieMatch ? `vitacall_token=${cookieMatch[1]}` : '';
+    const setCookies = typeof res.headers.getSetCookie === 'function'
+      ? res.headers.getSetCookie()
+      : [res.headers.get('set-cookie') || ''];
+    const joined = setCookies.join('; ');
+    const tokenMatch = joined.match(/vitacall_token=([^;]+)/);
+    const csrfMatch = joined.match(/vitacall_csrf=([^;]+)/);
+    const csrfToken = csrfMatch ? csrfMatch[1] : '';
+    const cookieParts = [];
+    if (tokenMatch) cookieParts.push(`vitacall_token=${tokenMatch[1]}`);
+    if (csrfToken) cookieParts.push(`vitacall_csrf=${csrfToken}`);
+    const cookie = cookieParts.join('; ');
     const data = await res.json();
-    return { res, data, cookie, token: data.token };
+    return { res, data, cookie, csrfToken, token: data.token };
   }
 
   test('26. Registration rejects weak passwords with 400', async () => {
@@ -342,10 +350,10 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
   });
 
   test('28. Logout revokes token so subsequent requests return 401', async () => {
-    const { cookie, token } = await loginAs('harvey.pagtalunan@ustp.edu.ph');
+    const { cookie, csrfToken, token } = await loginAs('harvey.pagtalunan@ustp.edu.ph');
     const logoutRes = await fetch(`${baseUrl}/api/auth/logout`, {
       method: 'POST',
-      headers: { Cookie: cookie }
+      headers: { Cookie: cookie, 'X-CSRF-Token': csrfToken }
     });
     assert.equal(logoutRes.status, 200);
 
@@ -372,7 +380,7 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
     // Student creates request
     const reqRes = await fetch(`${baseUrl}/api/requests`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: student.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: student.cookie, 'X-CSRF-Token': student.csrfToken },
       body: JSON.stringify({
         symptoms: ['Fever', 'Headache'],
         urgency: 'moderate',
@@ -388,7 +396,7 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
     // Doctor assigns to Nurse Sarah
     const assignRes = await fetch(`${baseUrl}/api/requests/${request.id}/assign`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: doctor.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: doctor.cookie, 'X-CSRF-Token': doctor.csrfToken },
       body: JSON.stringify({ nurseId: nurse.data.user.id })
     });
     assert.equal(assignRes.status, 200);
@@ -396,14 +404,14 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
     // Nurse advances assigned -> en_route -> in_progress
     const enRouteRes = await fetch(`${baseUrl}/api/requests/${request.id}/status`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie, 'X-CSRF-Token': nurse.csrfToken },
       body: JSON.stringify({ status: 'en_route' })
     });
     assert.equal(enRouteRes.status, 200);
 
     const inProgRes = await fetch(`${baseUrl}/api/requests/${request.id}/status`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie, 'X-CSRF-Token': nurse.csrfToken },
       body: JSON.stringify({ status: 'in_progress' })
     });
     assert.equal(inProgRes.status, 200);
@@ -411,7 +419,7 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
     // Nurse attempts to submit diagnosis -> 403
     const badCheckup = await fetch(`${baseUrl}/api/requests/${request.id}/clinical-record`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie, 'X-CSRF-Token': nurse.csrfToken },
       body: JSON.stringify({
         vitals: { temp: '38.2 C', bp: '110/70' },
         diagnosis: 'Dengue',
@@ -420,10 +428,10 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
     });
     assert.equal(badCheckup.status, 403);
 
-    // Nurse submits vitals & nurse notes only -> 200 + draft cert
+    // Nurse submits vitals & nurse notes only -> 201 + draft cert
     const goodCheckup = await fetch(`${baseUrl}/api/requests/${request.id}/clinical-record`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: nurse.cookie, 'X-CSRF-Token': nurse.csrfToken },
       body: JSON.stringify({
         vitals: { temp: '38.2 C', bp: '110/70', pulse: '88 bpm', spo2: '98%' },
         symptomsObserved: 'Febrile, warm to touch',
@@ -444,14 +452,14 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
     // Admin cannot sign & send -> 403, and cannot rewrite certificate via /api/admin/records -> 403
     const adminSignRes = await fetch(`${baseUrl}/api/certificates/${draftCertificate.id}/sign-and-send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie, 'X-CSRF-Token': admin.csrfToken },
       body: JSON.stringify({})
     });
     assert.equal(adminSignRes.status, 403);
 
     const adminEditCertRes = await fetch(`${baseUrl}/api/admin/records/certificates/${draftCertificate.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie, 'X-CSRF-Token': admin.csrfToken },
       body: JSON.stringify({ diagnosis: 'Tampered' })
     });
     assert.equal(adminEditCertRes.status, 403);
@@ -459,7 +467,7 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
     // Doctor validates, signs & sends to student
     const docValRes = await fetch(`${baseUrl}/api/requests/${request.id}/doctor-validate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: doctor.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: doctor.cookie, 'X-CSRF-Token': doctor.csrfToken },
       body: JSON.stringify({
         diagnosis: 'Acute Viral Febrile Illness',
         prescribedMedication: 'Paracetamol 500mg every 6 hours PRN',
@@ -473,13 +481,16 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
     const { certificate } = await docValRes.json();
     assert.match(certificate.verificationCode, /^USTP-VC-[0-9A-F]{12}$/);
 
-    // Public QR verification succeeds without exposing diagnosis or medication
+    // Public QR verification succeeds without exposing diagnosis, medication, studentId, or boardingHouse
     const verifyRes = await fetch(`${baseUrl}/api/verify-certificate/${certificate.verificationCode}`);
     assert.equal(verifyRes.status, 200);
     const verifyBody = await verifyRes.json();
     assert.equal(verifyBody.verified, true);
+    assert.equal(verifyBody.certificate.integrityVerified, true);
     assert.equal(verifyBody.certificate.diagnosis, undefined);
     assert.equal(verifyBody.certificate.prescribedMedication, undefined);
+    assert.equal(verifyBody.certificate.studentId, undefined);
+    assert.equal(verifyBody.certificate.boardingHouse, undefined);
   });
 
   test('31. Admin audit chain verification succeeds', async () => {
@@ -496,9 +507,85 @@ test.describe('Behavioral HTTP Security & Workflow Integration Tests', () => {
     const admin = await loginAs('admin.clinic@ustp.edu.ph');
     const res = await fetch(`${baseUrl}/api/admin/users/usr_student2`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie, 'X-CSRF-Token': admin.csrfToken },
       body: JSON.stringify({ confirmPassword: 'wrong-password' })
     });
     assert.equal(res.status, 403);
+  });
+
+  test('33. Cookie-authenticated mutations without X-CSRF-Token are rejected with 403', async () => {
+    const student = await loginAs('harvey.pagtalunan@ustp.edu.ph');
+    const res = await fetch(`${baseUrl}/api/requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: student.cookie },
+      body: JSON.stringify({ symptoms: ['Fever'], urgency: 'low', boardingHouse: 'Dorm' })
+    });
+    assert.equal(res.status, 403);
+  });
+
+  test('34. Certificate HMAC tampering detection and uniform 404 for revoked vs unknown codes', async () => {
+    const dbMod = require('../lib/db');
+    const currentDb = dbMod.getDb();
+    const cert = currentDb.certificates.find(c => c.status === 'valid');
+    assert.ok(cert, 'An issued valid certificate should exist from test 30');
+
+    // Tamper with validUntil in memory and verify public endpoint catches it
+    const origValidUntil = cert.validUntil;
+    cert.validUntil = '2099-12-31';
+    const tamperedRes = await fetch(`${baseUrl}/api/verify-certificate/${cert.verificationCode}`);
+    assert.equal(tamperedRes.status, 400);
+    const tamperedBody = await tamperedRes.json();
+    assert.equal(tamperedBody.tampered, true);
+    assert.equal(tamperedBody.status, 'tampered');
+    cert.validUntil = origValidUntil;
+
+    // Revoke cert and ensure revoked vs unknown both return uniform 404
+    const admin = await loginAs('admin.clinic@ustp.edu.ph');
+    const revokeRes = await fetch(`${baseUrl}/api/admin/certificates/${cert.id}/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie, 'X-CSRF-Token': admin.csrfToken },
+      body: JSON.stringify({ reason: 'Test revocation' })
+    });
+    assert.equal(revokeRes.status, 200);
+
+    const revokedVerify = await fetch(`${baseUrl}/api/verify-certificate/${cert.verificationCode}`);
+    const unknownVerify = await fetch(`${baseUrl}/api/verify-certificate/USTP-VC-000000000000`);
+    assert.equal(revokedVerify.status, 404);
+    assert.equal(unknownVerify.status, 404);
+    const revJson = await revokedVerify.json();
+    const unkJson = await unknownVerify.json();
+    assert.equal(revJson.message, unkJson.message);
+  });
+
+  test('35. Strict CSP has no unsafe-inline scripts and no third-party qrserver', async () => {
+    const res = await fetch(`${baseUrl}/api/public/landing-info`);
+    const csp = res.headers.get('content-security-policy') || '';
+    assert.ok(!csp.includes("'unsafe-inline'") || !csp.split('script-src ')[1]?.split(';')[0]?.includes("'unsafe-inline'"), 'script-src must not allow unsafe-inline');
+    assert.ok(!csp.includes('api.qrserver.com'), 'CSP must not allow api.qrserver.com');
+  });
+
+  test('36. Production mode refuses missing or short secrets (must be 64 hex chars)', () => {
+    const { loadOrCreateSecrets } = require('../lib/config');
+    const prevEnv = process.env.NODE_ENV;
+    const prevJwt = process.env.VITACALL_JWT_SECRET;
+    const prevEnc = process.env.VITACALL_ENCRYPTION_KEY;
+    const prevHmac = process.env.VITACALL_HMAC_KEY;
+    try {
+      process.env.NODE_ENV = 'production';
+      process.env.VITACALL_JWT_SECRET = 'short-key';
+      process.env.VITACALL_ENCRYPTION_KEY = '0'.repeat(64);
+      process.env.VITACALL_HMAC_KEY = 'a'.repeat(64);
+      assert.throws(() => loadOrCreateSecrets(), /64 hex characters/i);
+
+      process.env.VITACALL_JWT_SECRET = 'b'.repeat(64);
+      const ok = loadOrCreateSecrets();
+      assert.equal(ok.encryptionKey.length, 32);
+      assert.equal(ok.hmacKey.length, 32);
+    } finally {
+      process.env.NODE_ENV = prevEnv;
+      if (prevJwt === undefined) delete process.env.VITACALL_JWT_SECRET; else process.env.VITACALL_JWT_SECRET = prevJwt;
+      if (prevEnc === undefined) delete process.env.VITACALL_ENCRYPTION_KEY; else process.env.VITACALL_ENCRYPTION_KEY = prevEnc;
+      if (prevHmac === undefined) delete process.env.VITACALL_HMAC_KEY; else process.env.VITACALL_HMAC_KEY = prevHmac;
+    }
   });
 });

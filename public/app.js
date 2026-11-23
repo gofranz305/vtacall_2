@@ -5,19 +5,29 @@
 
 const API_BASE = '/api';
 
-// Ensure all same-origin API calls use HttpOnly cookies and never send "Bearer null"
+function getCookieValue(name) {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+// Ensure all same-origin API calls use HttpOnly cookies, attach CSRF token, and never send "Bearer null"
 const _nativeFetch = window.fetch.bind(window);
 window.fetch = (input, init = {}) => {
   const url = typeof input === 'string' ? input : (input && input.url) || '';
   if (url.startsWith('/api') || url.startsWith(window.location.origin + '/api')) {
     const nextInit = { ...init, credentials: 'same-origin' };
-    if (nextInit.headers && typeof nextInit.headers === 'object') {
-      const cleaned = { ...nextInit.headers };
-      if (cleaned['Authorization'] === 'Bearer null' || cleaned['Authorization'] === 'Bearer undefined') {
-        delete cleaned['Authorization'];
-      }
-      nextInit.headers = cleaned;
+    const cleaned = (nextInit.headers && typeof nextInit.headers === 'object') ? { ...nextInit.headers } : {};
+    if (cleaned['Authorization'] === 'Bearer null' || cleaned['Authorization'] === 'Bearer undefined') {
+      delete cleaned['Authorization'];
     }
+    const method = (nextInit.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+      const csrf = getCookieValue('vitacall_csrf');
+      if (csrf && !cleaned['X-CSRF-Token']) {
+        cleaned['X-CSRF-Token'] = csrf;
+      }
+    }
+    nextInit.headers = cleaned;
     return _nativeFetch(input, nextInit);
   }
   return _nativeFetch(input, init);
@@ -158,6 +168,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.error('Initialization error:', err);
   }
+  initCspEventDelegation();
+  fetch(`${API_BASE}/auth/csrf-token`).catch(() => {});
 });
 
 // =========================================================================
@@ -724,10 +736,10 @@ function showLogoutConfirmDialog() {
           </div>
         </div>
         <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
-          <button id="logoutCancelBtn" onclick="closeLogoutDialog()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition">
+          <button id="logoutCancelBtn" data-fn="closeLogoutDialog" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition">
             Cancel
           </button>
-          <button id="logoutConfirmBtn" onclick="confirmLogout()" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition flex items-center gap-1.5">
+          <button id="logoutConfirmBtn" data-fn="confirmLogout" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition flex items-center gap-1.5">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             Log Out
           </button>
@@ -1242,7 +1254,7 @@ function renderProfileView() {
   // Task 5: Profile picture display
   if (avatar) {
     if (user.profilePicture) {
-      avatar.innerHTML = `<img src="${user.profilePicture}" alt="Profile photo" class="w-full h-full object-cover" onerror="this.style.display='none'">`;
+      avatar.innerHTML = `<img src="${user.profilePicture}" alt="Profile photo" class="w-full h-full object-cover" data-onerror="hide">`;
       avatar.className = 'w-20 h-20 rounded-2xl overflow-hidden shadow-md flex-shrink-0 border-2 border-slate-200';
     } else {
       avatar.innerHTML = '';
@@ -1348,18 +1360,18 @@ function renderProfilePictureSection() {
           <label class="cursor-pointer inline-flex items-center gap-1.5 bg-ustp-navy hover:bg-ustp-navyLight text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm border border-slate-700">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-ustp-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             <span id="profilePicBtnLabel">${hasPhoto ? 'Change Profile Picture' : 'Add Profile Picture'}</span>
-            <input type="file" id="profilePicInput" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="handleProfilePicSelect(event)">
+            <input type="file" id="profilePicInput" accept="image/jpeg,image/png,image/webp" class="hidden" data-csp-change="handleProfilePicSelect(event)">
           </label>
           <p class="text-[10px] text-slate-400 mt-1">JPG, PNG, or WebP · Max 2 MB · Cropped to square (256×256)</p>
-          ${hasPhoto ? `<button type="button" onclick="removeProfilePicture()" class="mt-1 text-[10px] text-rose-500 hover:text-rose-700 font-semibold transition">Remove photo</button>` : ''}
+          ${hasPhoto ? `<button type="button" data-fn="removeProfilePicture" class="mt-1 text-[10px] text-rose-500 hover:text-rose-700 font-semibold transition">Remove photo</button>` : ''}
         </div>
       </div>
       <div id="profilePicActions" class="hidden mt-3 flex items-center gap-2">
-        <button type="button" id="savePicBtn" onclick="saveProfilePicture()" class="bg-ustp-navy hover:bg-ustp-navyLight text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+        <button type="button" id="savePicBtn" data-fn="saveProfilePicture" class="bg-ustp-navy hover:bg-ustp-navyLight text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Save Photo
         </button>
-        <button type="button" onclick="cancelProfilePicSelect()" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
+        <button type="button" data-fn="cancelProfilePicSelect" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
           Cancel
         </button>
       </div>
@@ -1372,7 +1384,7 @@ let _pendingProfilePicDataUrl = null;
 
 function _applyProfilePicToDOM(dataUrl) {
   if (!dataUrl) return;
-  const imgHtml = `<img src="${dataUrl}" alt="Profile photo" class="w-full h-full object-cover" onerror="this.parentElement.textContent='${(state.currentUser && state.currentUser.name || 'U').charAt(0).toUpperCase()}'">`;
+  const imgHtml = `<img src="${dataUrl}" alt="Profile photo" class="w-full h-full object-cover" data-onerror="initial" data-initial="${escHtml((state.currentUser && state.currentUser.name || 'U').charAt(0).toUpperCase())}">`;
 
   const profileAvatar = document.getElementById('profileAvatar');
   if (profileAvatar) {
@@ -1746,7 +1758,7 @@ function renderStudentActiveRequest() {
             <p class="text-xs text-slate-500 mt-0.5">Feeling sick in your boarding house? Request an off-site medical checkup from the campus clinic anytime.</p>
           </div>
         </div>
-        <button onclick="openRequestModal()" class="w-full sm:w-auto bg-ustp-navy hover:bg-ustp-navyLight text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 flex-shrink-0">
+        <button data-fn="openRequestModal" class="w-full sm:w-auto bg-ustp-navy hover:bg-ustp-navyLight text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 flex-shrink-0">
           <i data-lucide="plus" class="w-4 h-4"></i>
           <span>New Checkup Request</span>
         </button>
@@ -1906,11 +1918,11 @@ function renderStudentCertificates() {
         </div>
       </div>
       <div class="flex flex-wrap items-center gap-2 self-end sm:self-center">
-        <button onclick="downloadCertificatePdf('${cert.verificationCode}')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition shadow-sm" title="Download Official Medical Certificate as PDF">
+        <button data-fn="downloadCertificatePdf" data-a1="${escHtml(cert.verificationCode)}" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition shadow-sm" title="Download Official Medical Certificate as PDF">
           <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-200"></i>
           <span>Download PDF</span>
         </button>
-        <button onclick="viewCertificate('${cert.verificationCode}')" class="bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
+        <button data-fn="viewCertificate" data-a1="${escHtml(cert.verificationCode)}" class="bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
           <i data-lucide="printer" class="w-3.5 h-3.5 text-ustp-gold"></i>
           <span>View / Print</span>
         </button>
@@ -1945,11 +1957,11 @@ function renderStudentRequestHistory() {
       </div>
       ${r.status === 'completed' ? `
         <div class="flex items-center gap-2 self-end sm:self-center">
-          <button onclick="downloadCertificatePdf('${r.certificateId || 'USTP-VC-98421'}')" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition">
+          <button data-fn="downloadCertificatePdf" data-a1="${escHtml(r.certificateId || 'USTP-VC-98421')}" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition">
             <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-700"></i>
             <span>Download PDF</span>
           </button>
-          <button onclick="viewCertificate('${r.certificateId || 'USTP-VC-98421'}')" class="text-ustp-navy hover:text-blue-700 font-bold text-xs px-2 py-1.5 flex items-center gap-1">
+          <button data-fn="viewCertificate" data-a1="${escHtml(r.certificateId || 'USTP-VC-98421')}" class="text-ustp-navy hover:text-blue-700 font-bold text-xs px-2 py-1.5 flex items-center gap-1">
             <i data-lucide="file-check" class="w-4 h-4 text-emerald-600"></i>
             <span>Medical Slip</span>
           </button>
@@ -2057,17 +2069,17 @@ function renderPersonnelCertificatesList() {
         </div>
         <div class="flex flex-wrap items-center gap-2 self-start sm:self-center">
           ${isDraft && isDoctor ? `
-            <button onclick="openDoctorValidateModal('${c.requestId}')" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
+            <button data-fn="openDoctorValidateModal" data-a1="${escHtml(c.requestId)}" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
               <i data-lucide="pen-tool" class="w-3.5 h-3.5 text-amber-300"></i>
               <span>Validate, Sign &amp; Send</span>
             </button>
           ` : ''}
           ${!isDraft ? `
-            <button onclick="downloadCertificatePdf('${c.verificationCode}')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
+            <button data-fn="downloadCertificatePdf" data-a1="${escHtml(c.verificationCode)}" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
               <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-200"></i>
               <span>Download PDF</span>
             </button>
-            <button onclick="viewCertificate('${c.verificationCode}')" class="bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5">
+            <button data-fn="viewCertificate" data-a1="${escHtml(c.verificationCode)}" class="bg-ustp-navy hover:bg-ustp-navyLight text-white font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5">
               <i data-lucide="printer" class="w-3.5 h-3.5 text-ustp-goldLight"></i>
               <span>Preview / Print</span>
             </button>
@@ -2241,7 +2253,7 @@ function renderPersonnelQueueList() {
               ${availableNurses.map(n => `<option value="${n.id}">🩺 ${escHtml(n.name)}</option>`).join('')}
             </select>
             <input type="text" id="assignNurseNotes_${req.id}" placeholder="Triage note for nurse (optional)..." class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-44 sm:w-56">
-            <button onclick="assignRequestToNurse('${req.id}')" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
+            <button data-fn="assignRequestToNurse" data-a1="${escHtml(req.id)}" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
               <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
               <span>Assign to Campus Nurse</span>
             </button>
@@ -2249,7 +2261,7 @@ function renderPersonnelQueueList() {
         `;
       } else if (req.status === 'awaiting_doctor') {
         actionControlsHtml = `
-          <button onclick="openDoctorValidateModal('${req.id}')" class="bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition shadow-md">
+          <button data-fn="openDoctorValidateModal" data-a1="${escHtml(req.id)}" class="bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition shadow-md">
             <i data-lucide="pen-tool" class="w-3.5 h-3.5 text-ustp-goldLight"></i>
             <span>Review &amp; Validate Checkup (Diagnose &amp; Sign)</span>
           </button>
@@ -2262,7 +2274,7 @@ function renderPersonnelQueueList() {
         `;
       } else if (req.status === 'completed') {
         actionControlsHtml = `
-          <button onclick="viewCertificate('${req.certificateId || 'USTP-VC-98421'}')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition">
+          <button data-fn="viewCertificate" data-a1="${escHtml(req.certificateId || 'USTP-VC-98421')}" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition">
             <i data-lucide="file-badge" class="w-3.5 h-3.5 text-ustp-navy"></i>
             <span>View Signed Certificate</span>
           </button>
@@ -2272,21 +2284,21 @@ function renderPersonnelQueueList() {
       // Nurses MUST follow steps in order: Assigned -> En Route -> In Progress -> Record On-Site Checkup
       if (req.status === 'assigned') {
         actionControlsHtml = `
-          <button onclick="updateRequestStatus('${req.id}', 'en_route', 'Nurse traveling to boarding house with mobile kit')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
+          <button data-fn="updateRequestStatus" data-a1="${escHtml(req.id)}" data-a2="en_route" data-a3="Nurse traveling to boarding house with mobile kit" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
             <i data-lucide="navigation" class="w-3.5 h-3.5"></i>
             <span>Step 1: Mark En Route</span>
           </button>
         `;
       } else if (req.status === 'en_route') {
         actionControlsHtml = `
-          <button onclick="updateRequestStatus('${req.id}', 'in_progress', 'Arrived at boarding house. On-site checkup in progress.')" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
+          <button data-fn="updateRequestStatus" data-a1="${escHtml(req.id)}" data-a2="in_progress" data-a3="Arrived at boarding house. On-site checkup in progress." class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
             <i data-lucide="door-open" class="w-3.5 h-3.5"></i>
             <span>Step 2: Arrived — Start Checkup (In Progress)</span>
           </button>
         `;
       } else if (req.status === 'in_progress' || req.status === 'returned_to_nurse') {
         actionControlsHtml = `
-          <button onclick="openClinicalModal('${req.id}')" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold px-4 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
+          <button data-fn="openClinicalModal" data-a1="${escHtml(req.id)}" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold px-4 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
             <i data-lucide="stethoscope" class="w-3.5 h-3.5"></i>
             <span>${req.status === 'returned_to_nurse' ? 'Fix & Resubmit On-Site Checkup' : 'Step 3: Record On-Site Checkup'}</span>
           </button>
@@ -2299,7 +2311,7 @@ function renderPersonnelQueueList() {
         `;
       } else if (req.status === 'completed') {
         actionControlsHtml = `
-          <button onclick="viewCertificate('${req.certificateId || 'USTP-VC-98421'}')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition">
+          <button data-fn="viewCertificate" data-a1="${escHtml(req.certificateId || 'USTP-VC-98421')}" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition">
             <i data-lucide="file-badge" class="w-3.5 h-3.5 text-ustp-navy"></i>
             <span>View Issued Certificate</span>
           </button>
@@ -2901,10 +2913,14 @@ function populateCertificateDOM(cert) {
   }
 
   const qrImg = document.getElementById('certDocQrCode');
-  if (cert.qrCodeDataUrl) {
-    qrImg.src = cert.qrCodeDataUrl;
-  } else {
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent('USTP-VILLANUEVA-CERT:' + cert.verificationCode)}`;
+  if (qrImg) {
+    if (cert.qrCodeDataUrl) {
+      qrImg.src = cert.qrCodeDataUrl;
+      qrImg.classList.remove('hidden');
+    } else {
+      qrImg.removeAttribute('src');
+      qrImg.classList.add('hidden');
+    }
   }
 }
 
@@ -3593,11 +3609,11 @@ function renderAdminOverviewSection() {
         </div>
         <div class="flex items-center gap-2">
           ${pendingList.slice(0, 2).map(u => `
-            <button onclick="updateAdminUserStatus('${u.id}', 'active')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition">
+            <button data-fn="updateAdminUserStatus" data-a1="${escHtml(u.id)}" data-a2="active" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition">
               Approve ${escHtml(u.name.split(' ')[0])}
             </button>
           `).join('')}
-          <button onclick="switchAdminSection('users')" class="bg-white border border-amber-300 text-amber-900 font-bold px-3 py-1.5 rounded-xl text-xs">View All</button>
+          <button data-fn="switchAdminSection" data-a1="users" class="bg-white border border-amber-300 text-amber-900 font-bold px-3 py-1.5 rounded-xl text-xs">View All</button>
         </div>
       `;
     } else {
@@ -3877,7 +3893,7 @@ function renderAdminUsersTable() {
           </td>
           <td class="p-3">${affil}</td>
           <td class="p-3">
-            <button onclick="openUserPermissionsModal('${u.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 text-[11px] font-semibold transition">
+            <button data-fn="openUserPermissionsModal" data-a1="${escHtml(u.id)}" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 text-[11px] font-semibold transition">
               🛡️ ${permCount} Perms
             </button>
           </td>
@@ -3886,20 +3902,20 @@ function renderAdminUsersTable() {
           </td>
           <td class="p-3 text-right whitespace-nowrap">
             <div class="inline-flex items-center gap-1">
-              <button onclick="openUserDetailModal('${u.id}')" title="View Full User Info" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+              <button data-fn="openUserDetailModal" data-a1="${escHtml(u.id)}" title="View Full User Info" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
               </button>
-              <button onclick="openAdminUserModal('${u.id}')" title="Edit User Account" class="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition">
+              <button data-fn="openAdminUserModal" data-a1="${escHtml(u.id)}" title="Edit User Account" class="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition">
                 <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
               </button>
-              <button onclick="openAdminResetPasswordModal('${u.id}')" title="Reset User Password" class="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 transition">
+              <button data-fn="openAdminResetPasswordModal" data-a1="${escHtml(u.id)}" title="Reset User Password" class="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 transition">
                 <i data-lucide="key-round" class="w-3.5 h-3.5"></i>
               </button>
               ${st === 'active'
-          ? `<button onclick="updateAdminUserStatus('${u.id}', 'inactive')" title="Deactivate Account" class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition"><i data-lucide="user-x" class="w-3.5 h-3.5"></i></button>`
-          : `<button onclick="updateAdminUserStatus('${u.id}', 'active')" title="Activate / Approve Account" class="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition"><i data-lucide="user-check" class="w-3.5 h-3.5"></i></button>`
+          ? `<button data-fn="updateAdminUserStatus" data-a1="${escHtml(u.id)}" data-a2="inactive" title="Deactivate Account" class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition"><i data-lucide="user-x" class="w-3.5 h-3.5"></i></button>`
+          : `<button data-fn="updateAdminUserStatus" data-a1="${escHtml(u.id)}" data-a2="active" title="Activate / Approve Account" class="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition"><i data-lucide="user-check" class="w-3.5 h-3.5"></i></button>`
         }
-              <button onclick="confirmDeleteUser('${u.id}')" title="Delete Account" class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white transition">
+              <button data-fn="confirmDeleteUser" data-a1="${escHtml(u.id)}" title="Delete Account" class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white transition">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
             </div>
@@ -3913,9 +3929,9 @@ function renderAdminUsersTable() {
     pagEl.innerHTML = `
       <div>Showing <strong>${total === 0 ? 0 : startIdx + 1}</strong> to <strong>${Math.min(total, startIdx + state.usersPageSize)}</strong> of <strong>${total}</strong> accounts</div>
       <div class="flex items-center gap-1.5">
-        <button onclick="changeUsersPage(-1)" ${state.usersPage <= 1 ? 'disabled' : ''} class="px-3 py-1 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-semibold">Prev</button>
+        <button data-fn="changeUsersPage" data-a1="-1" ${state.usersPage <= 1 ? 'disabled' : ''} class="px-3 py-1 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-semibold">Prev</button>
         <span class="px-2 font-bold text-slate-700">Page ${state.usersPage} / ${totalPages}</span>
-        <button onclick="changeUsersPage(1)" ${state.usersPage >= totalPages ? 'disabled' : ''} class="px-3 py-1 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-semibold">Next</button>
+        <button data-fn="changeUsersPage" data-a1="1" ${state.usersPage >= totalPages ? 'disabled' : ''} class="px-3 py-1 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-semibold">Next</button>
       </div>
     `;
   }
@@ -4415,9 +4431,9 @@ function renderAdminAuditLogsTable() {
     pagEl.innerHTML = `
       <div>Showing <strong>${total === 0 ? 0 : startIdx + 1}</strong> to <strong>${Math.min(total, startIdx + pageSize)}</strong> of <strong>${total}</strong> immutable audit events</div>
       <div class="flex items-center gap-1.5">
-        <button onclick="changeAuditPage(-1)" ${state.auditPage <= 1 ? 'disabled' : ''} class="px-3 py-1 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-semibold">Prev</button>
+        <button data-fn="changeAuditPage" data-a1="-1" ${state.auditPage <= 1 ? 'disabled' : ''} class="px-3 py-1 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-semibold">Prev</button>
         <span class="px-2 font-bold text-slate-700">Page ${state.auditPage} / ${totalPages}</span>
-        <button onclick="changeAuditPage(1)" ${state.auditPage >= totalPages ? 'disabled' : ''} class="px-3 py-1 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-semibold">Next</button>
+        <button data-fn="changeAuditPage" data-a1="1" ${state.auditPage >= totalPages ? 'disabled' : ''} class="px-3 py-1 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-semibold">Next</button>
       </div>
     `;
   }
@@ -4799,7 +4815,7 @@ function renderAdminSecuritySection() {
             <div class="font-bold text-slate-900">${escHtml(u.name)} <span class="text-slate-500 font-normal">(${escHtml(u.email)})</span></div>
             <div class="text-[11px] text-rose-600 font-semibold">Failed Attempts: ${u.failedLoginAttempts} ${u.lockedUntil ? '• Locked until ' + new Date(u.lockedUntil).toLocaleTimeString() : ''}</div>
           </div>
-          <button onclick="unlockAdminUserAccount('${u.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition">
+          <button data-fn="unlockAdminUserAccount" data-a1="${escHtml(u.id)}" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition">
             Unlock &amp; Reset
           </button>
         </div>
@@ -4844,7 +4860,7 @@ function renderAdminSecurityTable() {
         <td class="p-3 text-right whitespace-nowrap">
           ${e.resolved
         ? `<span class="text-emerald-700 font-bold text-[11px]">✓ Verified</span>`
-        : `<button onclick="resolveSecurityEvent('${e.id}')" class="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[11px] transition">Mark Resolved</button>`
+        : `<button data-fn="resolveSecurityEvent" data-a1="${escHtml(e.id)}" class="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[11px] transition">Mark Resolved</button>`
       }
         </td>
       </tr>
@@ -4912,10 +4928,10 @@ function renderAdminBackupsList() {
         </div>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
-        <button onclick="confirmRestoreSnapshot('${b.id}', '${escHtml(b.name)}')" class="px-2.5 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[11px] transition">
+        <button data-fn="confirmRestoreSnapshot" data-a1="${escHtml(b.id)}" data-a2="${escHtml(b.name)}" class="px-2.5 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[11px] transition">
           Restore
         </button>
-        <button onclick="confirmDeleteSnapshot('${b.id}')" class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition">
+        <button data-fn="confirmDeleteSnapshot" data-a1="${escHtml(b.id)}" class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
         </button>
       </div>
@@ -5047,8 +5063,8 @@ function renderAdminDataRecordsTable() {
           <td class="p-3 uppercase font-bold text-[10px] text-teal-700">${escHtml(r.status)}</td>
           <td class="p-3 text-slate-500">${new Date(r.createdAt).toLocaleDateString()}</td>
           <td class="p-3 text-right space-x-1">
-            <button onclick="openAdminRecordModal('requests', '${r.id}')" class="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px]">Edit</button>
-            <button onclick="confirmDeleteSystemRecord('requests', '${r.id}')" class="px-2.5 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px]">Delete</button>
+            <button data-fn="openAdminRecordModal" data-a1="requests" data-a2="${escHtml(r.id)}" class="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px]">Edit</button>
+            <button data-fn="confirmDeleteSystemRecord" data-a1="requests" data-a2="${escHtml(r.id)}" class="px-2.5 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px]">Delete</button>
           </td>
         </tr>
       `).join('');
@@ -5114,8 +5130,8 @@ function renderAdminDataRecordsTable() {
           <td class="p-3 text-slate-600">${escHtml(c.issuerName)}</td>
           <td class="p-3 uppercase font-bold text-[10px] text-emerald-700">${escHtml(c.status || 'valid')}</td>
           <td class="p-3 text-right space-x-1">
-            <button onclick="viewCertificate('${escHtml(c.verificationCode)}')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px]">View</button>
-            ${c.status !== 'revoked' ? `<button onclick="revokeAdminCertificate('${escHtml(c.id)}')" class="px-2.5 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[11px]">Revoke</button>` : ''}
+            <button data-fn="viewCertificate" data-a1="${escHtml(c.verificationCode)}" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px]">View</button>
+            ${c.status !== 'revoked' ? `<button data-fn="revokeAdminCertificate" data-a1="${escHtml(c.id)}" class="px-2.5 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[11px]">Revoke</button>` : ''}
           </td>
         </tr>
       `).join('');
@@ -5368,8 +5384,8 @@ function renderAdminAnnouncementsSection() {
               <span class="bg-slate-200 text-slate-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">${escHtml(a.priority)}</span>
             </div>
             <div class="flex items-center gap-1">
-              <button onclick="editAdminAnnouncement('${a.id}')" class="px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px]">Edit</button>
-              <button onclick="confirmDeleteAnnouncement('${a.id}')" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px]">Delete</button>
+              <button data-fn="editAdminAnnouncement" data-a1="${escHtml(a.id)}" class="px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px]">Edit</button>
+              <button data-fn="confirmDeleteAnnouncement" data-a1="${escHtml(a.id)}" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px]">Delete</button>
             </div>
           </div>
           <h4 class="font-bold text-slate-900 text-sm">${escHtml(a.title)}</h4>
@@ -5788,8 +5804,9 @@ function updateNotificationsUI() {
       <div
         role="button"
         tabindex="0"
-        onclick="handleNotifClick('${n.id}', '${targetRoute}')"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleNotifClick('${n.id}','${targetRoute}')}"
+        data-fn="handleNotifClick"
+        data-a1="${escHtml(n.id)}"
+        data-a2="${escHtml(targetRoute)}"
         class="p-3 hover:bg-slate-50 transition cursor-pointer ${n.isRead ? 'opacity-60' : 'bg-amber-50/40 border-l-2 border-amber-400'} focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ustp-navy"
         aria-label="${escHtml(n.title)}"
       >
@@ -5891,4 +5908,255 @@ function showToast(msg, type = 'success') {
     toast.style.transform = 'translateX(130%)';
     setTimeout(() => toast.remove(), 300);
   }, 3500);
+}
+
+// =========================================================================
+// STRICT CSP DELEGATED EVENT DISPATCHER (Zero unsafe-inline / Zero eval)
+// =========================================================================
+let _cspDelegationInitialized = false;
+function initCspEventDelegation() {
+  if (_cspDelegationInitialized) return;
+  _cspDelegationInitialized = true;
+
+  const CSP_CLICK_MAP = {
+    'toggleLeftSidebar()': () => toggleLeftSidebar(),
+    'handleBrandClick()': () => handleBrandClick(),
+    "navigate('landing')": () => navigate('landing'),
+    "navigate('landing'); setTimeout(()=>document.getElementById('landingVerifyCodeInput')?.focus(), 100);": () => {
+      navigate('landing');
+      setTimeout(() => document.getElementById('landingVerifyCodeInput')?.focus(), 100);
+    },
+    "navigate('dashboard')": () => navigate('dashboard'),
+    'toggleNotifications()': () => toggleNotifications(),
+    'markAllNotificationsRead()': () => markAllNotificationsRead(),
+    "navigate('profile')": () => navigate('profile'),
+    'logout()': () => logout(),
+    "goToAuth('register')": () => goToAuth('register'),
+    "goToAuth('login')": () => goToAuth('login'),
+    'closeLeftSidebar()': () => closeLeftSidebar(),
+    "navigate('landing'); closeLeftSidebar();": () => { navigate('landing'); closeLeftSidebar(); },
+    "goToAuth('login'); closeLeftSidebar();": () => { goToAuth('login'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchStudentTab('overview'); closeLeftSidebar();": () => { navigate('dashboard'); switchStudentTab('overview'); closeLeftSidebar(); },
+    'openRequestModal(); closeLeftSidebar();': () => { openRequestModal(); closeLeftSidebar(); },
+    "switchStudentTab('overview'); navigate('certificates'); closeLeftSidebar();": () => { switchStudentTab('overview'); navigate('certificates'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchStudentTab('announcements'); closeLeftSidebar();": () => { navigate('dashboard'); switchStudentTab('announcements'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchStudentTab('settings'); closeLeftSidebar();": () => { navigate('dashboard'); switchStudentTab('settings'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchPersonnelTab('queue'); closeLeftSidebar();": () => { navigate('dashboard'); switchPersonnelTab('queue'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchPersonnelTab('certificates'); closeLeftSidebar();": () => { navigate('dashboard'); switchPersonnelTab('certificates'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchPersonnelTab('announcements'); closeLeftSidebar();": () => { navigate('dashboard'); switchPersonnelTab('announcements'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchPersonnelTab('settings'); closeLeftSidebar();": () => { navigate('dashboard'); switchPersonnelTab('settings'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchAdminSection('overview'); closeLeftSidebar();": () => { navigate('dashboard'); switchAdminSection('overview'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchAdminSection('users'); closeLeftSidebar();": () => { navigate('dashboard'); switchAdminSection('users'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchAdminSection('logs'); closeLeftSidebar();": () => { navigate('dashboard'); switchAdminSection('logs'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchAdminSection('reports'); closeLeftSidebar();": () => { navigate('dashboard'); switchAdminSection('reports'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchAdminSection('security'); closeLeftSidebar();": () => { navigate('dashboard'); switchAdminSection('security'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchAdminSection('data'); closeLeftSidebar();": () => { navigate('dashboard'); switchAdminSection('data'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchAdminSection('announcements'); closeLeftSidebar();": () => { navigate('dashboard'); switchAdminSection('announcements'); closeLeftSidebar(); },
+    "navigate('dashboard'); switchAdminSection('settings'); closeLeftSidebar();": () => { navigate('dashboard'); switchAdminSection('settings'); closeLeftSidebar(); },
+    "navigate('profile'); closeLeftSidebar();": () => { navigate('profile'); closeLeftSidebar(); },
+    "document.getElementById('landingVerifyCodeInput').value='USTP-VC-98421'; verifyPublicCertificate(event);": (e) => {
+      const inp = document.getElementById('landingVerifyCodeInput');
+      if (inp) inp.value = 'USTP-VC-98421';
+      verifyPublicCertificate(e);
+    },
+    "switchAuthTab('login')": () => switchAuthTab('login'),
+    "switchAuthTab('register')": () => switchAuthTab('register'),
+    "prefillLogin('harvey.pagtalunan@ustp.edu.ph')": () => prefillLogin('harvey.pagtalunan@ustp.edu.ph'),
+    "prefillLogin('nurse.sarah@ustp.edu.ph')": () => prefillLogin('nurse.sarah@ustp.edu.ph'),
+    "prefillLogin('dr.santos@ustp.edu.ph')": () => prefillLogin('dr.santos@ustp.edu.ph'),
+    "prefillLogin('admin.clinic@ustp.edu.ph')": () => prefillLogin('admin.clinic@ustp.edu.ph'),
+    "switchStudentTab('settings')": () => switchStudentTab('settings'),
+    'openRequestModal()': () => openRequestModal(),
+    "switchStudentTab('overview')": () => switchStudentTab('overview'),
+    "switchPersonnelTab('settings')": () => switchPersonnelTab('settings'),
+    "filterQueue('all')": () => filterQueue('all'),
+    "filterQueue('pending')": () => filterQueue('pending'),
+    "filterQueue('active')": () => filterQueue('active'),
+    "filterQueue('awaiting_doctor')": () => filterQueue('awaiting_doctor'),
+    "filterQueue('completed')": () => filterQueue('completed'),
+    "switchPersonnelTab('queue')": () => switchPersonnelTab('queue'),
+    'openAdminUserModal()': () => openAdminUserModal(),
+    'exportDatabaseBackup()': () => exportDatabaseBackup(),
+    "switchAdminSection('users')": () => switchAdminSection('users'),
+    "switchAdminSection('security')": () => switchAdminSection('security'),
+    "switchAdminSection('logs')": () => switchAdminSection('logs'),
+    'exportUsersCsv()': () => exportUsersCsv(),
+    'verifyAdminAuditChain()': () => verifyAdminAuditChain(),
+    'exportAuditLogsCsv()': () => exportAuditLogsCsv(),
+    'refreshAuditLogs()': () => refreshAuditLogs(),
+    'exportAdminReportExcel()': () => exportAdminReportExcel(),
+    'printAdminReportPdf()': () => printAdminReportPdf(),
+    'generateAdminReport(true)': () => generateAdminReport(true),
+    'loadAdminSecurityData()': () => loadAdminSecurityData(),
+    'createInAppBackupSnapshot()': () => createInAppBackupSnapshot(),
+    'exportCurrentCollectionCsv()': () => exportCurrentCollectionCsv(),
+    'openAdminRecordModal()': () => openAdminRecordModal(),
+    "switchDataRecordTab('requests')": () => switchDataRecordTab('requests'),
+    "switchDataRecordTab('clinicalRecords')": () => switchDataRecordTab('clinicalRecords'),
+    "switchDataRecordTab('certificates')": () => switchDataRecordTab('certificates'),
+    'resetAnnouncementForm()': () => resetAnnouncementForm(),
+    "document.getElementById('sysSettingLogo').value='assets/ustp-logo.svg'": () => {
+      const el = document.getElementById('sysSettingLogo');
+      if (el) el.value = 'assets/ustp-logo.svg';
+    },
+    "document.getElementById('sysSettingLogo').value='assets/clinic-seal.svg'": () => {
+      const el = document.getElementById('sysSettingLogo');
+      if (el) el.value = 'assets/clinic-seal.svg';
+    },
+    "document.getElementById('profilePicInput')?.click()": () => document.getElementById('profilePicInput')?.click(),
+    "clearSignatureCanvas('profSignatureCanvas')": () => clearSignatureCanvas('profSignatureCanvas'),
+    'saveDrawnProfileSignature()': () => saveDrawnProfileSignature(),
+    'openCurrentDashboardSettings()': () => openCurrentDashboardSettings(),
+    'handleFabClick()': () => handleFabClick(),
+    "navigate('admin')": () => navigate('admin'),
+    'closeRequestModal()': () => closeRequestModal(),
+    'closeClinicalModal()': () => closeClinicalModal(),
+    'closeDoctorValidateModal()': () => closeDoctorValidateModal(),
+    'applySavedDoctorSignatureOneClick()': () => applySavedDoctorSignatureOneClick(),
+    "clearSignatureCanvas('docValSigCanvas')": () => clearSignatureCanvas('docValSigCanvas'),
+    'useDrawnModalSignature()': () => useDrawnModalSignature(),
+    'returnCheckupToNurse()': () => returnCheckupToNurse(),
+    'if(event.target === this) closeCertificateModal()': (e, el) => { if (e.target === el) closeCertificateModal(); },
+    'downloadCurrentCertificatePdf()': () => downloadCurrentCertificatePdf(),
+    'printCertificate()': () => printCertificate(),
+    'closeCertificateModal()': () => closeCertificateModal(),
+    'closeAdminUserModal()': () => closeAdminUserModal(),
+    'closeUserPermissionsModal()': () => closeUserPermissionsModal(),
+    "document.getElementById('userDetailModal').classList.add('hidden')": () => document.getElementById('userDetailModal')?.classList.add('hidden'),
+    "document.getElementById('adminResetPasswordModal').classList.add('hidden')": () => document.getElementById('adminResetPasswordModal')?.classList.add('hidden'),
+    "document.getElementById('adminRecordModal').classList.add('hidden')": () => document.getElementById('adminRecordModal')?.classList.add('hidden'),
+    'closeConfirmActionModal()': () => closeConfirmActionModal(),
+    "document.getElementById('forcePasswordChangeModal').classList.add('hidden')": () => document.getElementById('forcePasswordChangeModal')?.classList.add('hidden')
+  };
+
+  const CSP_CHANGE_MAP = {
+    'restoreDatabaseBackup(event)': (e) => restoreDatabaseBackup(e),
+    'renderAdminUsersTable()': () => renderAdminUsersTable(),
+    'renderAdminAuditLogsTable()': () => renderAdminAuditLogsTable(),
+    'generateAdminReport(false)': () => generateAdminReport(false),
+    'handleReportPeriodChange()': () => handleReportPeriodChange(),
+    'renderAdminSecurityTable()': () => renderAdminSecurityTable(),
+    "handleSignatureFileUpload(event, 'profile')": (e) => handleSignatureFileUpload(e, 'profile'),
+    "handleSignatureFileUpload(event, 'modal')": (e) => handleSignatureFileUpload(e, 'modal'),
+    'toggleAdminUserRoleFields()': () => toggleAdminUserRoleFields(),
+    'applyRoleDefaultCheckboxes(this.value)': (e, el) => applyRoleDefaultCheckboxes(el.value),
+    'handleProfilePicSelect(event)': (e) => handleProfilePicSelect(e)
+  };
+
+  const CSP_INPUT_MAP = {
+    'searchQueue(this.value)': (e, el) => searchQueue(el.value),
+    'renderAdminUsersTable()': () => renderAdminUsersTable(),
+    'renderAdminAuditLogsTable()': () => renderAdminAuditLogsTable(),
+    'renderAdminDataRecordsTable()': () => renderAdminDataRecordsTable()
+  };
+
+  const CSP_SUBMIT_MAP = {
+    'verifyPublicCertificate(event)': (e) => verifyPublicCertificate(e),
+    'handleLoginSubmit(event)': (e) => handleLoginSubmit(e),
+    'handleRegisterSubmit(event)': (e) => handleRegisterSubmit(e),
+    "saveRoleDashboardSettings(event, 'requester')": (e) => saveRoleDashboardSettings(e, 'requester'),
+    "saveRoleDashboardSettings(event, 'personnel')": (e) => saveRoleDashboardSettings(e, 'personnel'),
+    'submitAdminAnnouncement(event)': (e) => submitAdminAnnouncement(e),
+    'saveAdminSystemSettings(event)': (e) => saveAdminSystemSettings(e),
+    'handleProfileUpdate(event)': (e) => handleProfileUpdate(e),
+    'submitCheckupRequest(event)': (e) => submitCheckupRequest(e),
+    'submitClinicalRecord(event)': (e) => submitClinicalRecord(e),
+    'submitDoctorValidation(event)': (e) => submitDoctorValidation(e),
+    'submitAdminUserForm(event)': (e) => submitAdminUserForm(e),
+    'submitUserPermissions(event)': (e) => submitUserPermissions(e),
+    'submitAdminPasswordReset(event)': (e) => submitAdminPasswordReset(e),
+    'submitAdminRecordForm(event)': (e) => submitAdminRecordForm(e),
+    'submitForcePasswordChange(event)': (e) => submitForcePasswordChange(e)
+  };
+
+  const DYNAMIC_FN_MAP = {
+    closeLogoutDialog: () => closeLogoutDialog(),
+    confirmLogout: () => confirmLogout(),
+    removeProfilePicture: () => removeProfilePicture(),
+    saveProfilePicture: () => saveProfilePicture(),
+    cancelProfilePicSelect: () => cancelProfilePicSelect(),
+    openRequestModal: () => openRequestModal(),
+    downloadCertificatePdf: (a1) => downloadCertificatePdf(a1),
+    viewCertificate: (a1) => viewCertificate(a1),
+    openDoctorValidateModal: (a1) => openDoctorValidateModal(a1),
+    assignRequestToNurse: (a1) => assignRequestToNurse(a1),
+    updateRequestStatus: (a1, a2, a3) => updateRequestStatus(a1, a2, a3),
+    openClinicalModal: (a1) => openClinicalModal(a1),
+    updateAdminUserStatus: (a1, a2) => updateAdminUserStatus(a1, a2),
+    switchAdminSection: (a1) => switchAdminSection(a1),
+    openUserPermissionsModal: (a1) => openUserPermissionsModal(a1),
+    openUserDetailModal: (a1) => openUserDetailModal(a1),
+    openAdminUserModal: (a1) => openAdminUserModal(a1),
+    openAdminResetPasswordModal: (a1) => openAdminResetPasswordModal(a1),
+    confirmDeleteUser: (a1) => confirmDeleteUser(a1),
+    changeUsersPage: (a1) => changeUsersPage(Number(a1)),
+    changeAuditPage: (a1) => changeAuditPage(Number(a1)),
+    unlockAdminUserAccount: (a1) => unlockAdminUserAccount(a1),
+    resolveSecurityEvent: (a1) => resolveSecurityEvent(a1),
+    confirmRestoreSnapshot: (a1, a2) => confirmRestoreSnapshot(a1, a2),
+    confirmDeleteSnapshot: (a1) => confirmDeleteSnapshot(a1),
+    openAdminRecordModal: (a1, a2) => openAdminRecordModal(a1, a2),
+    confirmDeleteSystemRecord: (a1, a2) => confirmDeleteSystemRecord(a1, a2),
+    revokeAdminCertificate: (a1) => revokeAdminCertificate(a1),
+    editAdminAnnouncement: (a1) => editAdminAnnouncement(a1),
+    confirmDeleteAnnouncement: (a1) => confirmDeleteAnnouncement(a1),
+    handleNotifClick: (a1, a2) => handleNotifClick(a1, a2)
+  };
+
+  document.addEventListener('click', (e) => {
+    const dynEl = e.target.closest('[data-fn]');
+    if (dynEl) {
+      const fn = DYNAMIC_FN_MAP[dynEl.dataset.fn];
+      if (fn) fn(dynEl.dataset.a1, dynEl.dataset.a2, dynEl.dataset.a3);
+      return;
+    }
+    const cspEl = e.target.closest('[data-csp-click]');
+    if (cspEl) {
+      const handler = CSP_CLICK_MAP[cspEl.dataset.cspClick];
+      if (handler) handler(e, cspEl);
+    }
+  });
+
+  document.addEventListener('change', (e) => {
+    const cspEl = e.target.closest('[data-csp-change]');
+    if (cspEl) {
+      const handler = CSP_CHANGE_MAP[cspEl.dataset.cspChange];
+      if (handler) handler(e, cspEl);
+    }
+  });
+
+  document.addEventListener('input', (e) => {
+    const cspEl = e.target.closest('[data-csp-input]');
+    if (cspEl) {
+      const handler = CSP_INPUT_MAP[cspEl.dataset.cspInput];
+      if (handler) handler(e, cspEl);
+    }
+  });
+
+  document.addEventListener('submit', (e) => {
+    const form = e.target.closest('[data-csp-submit]');
+    if (form) {
+      const handler = CSP_SUBMIT_MAP[form.dataset.cspSubmit];
+      if (handler) handler(e, form);
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const notifEl = e.target.closest('[data-fn="handleNotifClick"]');
+      if (notifEl) {
+        e.preventDefault();
+        handleNotifClick(notifEl.dataset.a1, notifEl.dataset.a2);
+      }
+    }
+  });
+
+  document.addEventListener('error', (e) => {
+    const img = e.target;
+    if (img && img.dataset && img.dataset.onerror === 'hide') {
+      img.style.display = 'none';
+    } else if (img && img.dataset && img.dataset.onerror === 'initial' && img.parentElement) {
+      img.parentElement.textContent = img.dataset.initial || 'U';
+    }
+  }, true);
 }

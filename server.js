@@ -4,26 +4,28 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
-const { PORT, NODE_ENV, CORS_ORIGIN } = require('./lib/config');
+const { PORT, NODE_ENV, IS_PROD, CORS_ORIGIN } = require('./lib/config');
 const { encryptField, decryptField, generateHmac } = require('./lib/crypto');
 const logger = require('./lib/logger');
 const { createScheduledDiskBackup } = require('./lib/db');
+const { csrfProtection } = require('./lib/middleware');
 const createAuthRouter = require('./lib/routes/auth');
 const createClinicalRouter = require('./lib/routes/clinical');
 const createAdminRouter = require('./lib/routes/admin');
 
 const app = express();
+app.set('trust proxy', 1);
 
-// Security Headers via Helmet + CSP
+// Security Headers via Helmet + Strict CSP (no unsafe-inline scripts, no third-party QR CDN)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.tailwindcss.com', 'https://unpkg.com', 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
-      scriptSrcAttr: ["'unsafe-inline'"],
+      scriptSrc: ["'self'", 'https://cdn.tailwindcss.com', 'https://unpkg.com', 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
+      scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-      imgSrc: ["'self'", 'data:', 'blob:', 'https://api.qrserver.com'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: ["'self'"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
@@ -33,7 +35,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Restricted CORS (allows same-origin, localhost, or configured CORS_ORIGIN)
+// Restricted CORS (LAN 192.168.x.x / localhost allowed ONLY outside production)
 const allowedOrigins = CORS_ORIGIN
   ? CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean)
   : ['http://localhost:3000', 'http://127.0.0.1:3000'];
@@ -41,7 +43,10 @@ const allowedOrigins = CORS_ORIGIN
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    if (!IS_PROD && /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin)) {
       return callback(null, true);
     }
     return callback(new Error('CORS origin not allowed'));
@@ -81,6 +86,7 @@ const verifyLimiter = rateLimit({
 });
 
 app.use('/api/', apiLimiter);
+app.use('/api/', csrfProtection);
 
 // Static Frontend
 app.use(express.static(path.join(__dirname, 'public')));

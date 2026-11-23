@@ -46,8 +46,8 @@ service cloud.firestore {
     // 1. USERS COLLECTION
     // =========================================================================
     match /users/{userId} {
-      // Users can read their own profile; Personnel can read student profiles; Admin can read all
-      allow read: if isAdmin() || isOwner(userId) || isPersonnel();
+      // Users can read their own profile; Personnel & Doctor can read student profiles; Admin can read all
+      allow read: if isAdmin() || isOwner(userId) || isPersonnel() || isDoctor();
 
       // Only Admin can create accounts with arbitrary roles or delete accounts;
       // Self-registration only allowed for student ('requester') role

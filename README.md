@@ -28,7 +28,7 @@ npm start
 
 ### To run tests and build checks:
 ```bash
-# Run automated test suite (25/25 passing)
+# Run automated test suite (36/36 passing: 25 static/crypto checks + 11 live HTTP integration tests)
 npm test
 
 # Run build / syntax compilation check
@@ -43,7 +43,7 @@ npm run build
 - **Pending Triage Queue & Nurse Assignment**: New student checkup requests arrive in the Doctor's **Pending Triage Queue**, where the doctor reviews symptoms/urgency and assigns the request to an active Campus Nurse (`POST /api/requests/:id/assign`).
 - **Clinical Validation, Diagnosis & Prescription**: Reviews the nurse's on-site checkup findings (vital signs, physical observations, and nurse notes) and enters the **Official Clinical Diagnosis**, **Prescribed Medication**, care recommendations, excused dates, certificate validity date, and physician remarks.
 - **Digital Signature Pad (Draw, Upload & 1-Click Apply)**: The doctor can draw or upload their digital signature on their Profile (`#profSignatureCanvas`) and apply it to certificates with one click (`applySavedDoctorSignatureOneClick()`).
-- **Sign & Send to Student**: Only the doctor can click **Sign & Send to Student** (`POST /api/requests/:id/doctor-validate` / `POST /api/certificates/:id/sign-and-send`), which seals the final certificate with a SHA-256 integrity hash, generates the official QR code, marks the request complete, and sends the notification to the student.
+- **Sign & Send to Student**: Only the doctor can click **Sign & Send to Student** (`POST /api/requests/:id/doctor-validate` / `POST /api/certificates/:id/sign-and-send`), which seals the final certificate with a keyed HMAC-SHA256 integrity hash (re-verified on view and public QR lookup), generates the official QR code, marks the request complete, and sends the notification to the student.
 - **Return to Nurse**: If corrections are needed on the nurse's checkup findings, the doctor can click **Return to Nurse** (`POST /api/requests/:id/return-to-nurse`) with a revision note so the nurse can fix and resubmit the checkup.
 
 ### 🩺 Campus Nurse / Health Personnel (`role: 'personnel'` — Nurse Sarah Alcantara, RN)
@@ -71,5 +71,5 @@ npm run build
 
 - **AES-256-GCM Encryption at Rest**: Sensitive medical fields — including `diagnosis`, `prescribedMedication`, `prescriptionAndCare`, `nurseNotes`, `symptomsObserved`, and `doctorSignature` — are encrypted at rest (`ENC:v1:...`) in `data/vitacall-db.json` using AES-256-GCM.
 - **Privacy-Preserving Public QR Verification (`GET /api/verify-certificate/:code`)**: Public verification only succeeds for doctor-signed, valid certificates (rejecting drafts and revoked certificates) and **never** exposes clinical diagnosis, prescribed medication, vitals, or nurse notes.
-- **Tamper-Evident Audit Trail**: Every major action (`TRIAGE_ASSIGNED`, `UNAUTHORIZED_NURSE_ASSIGN_ATTEMPT`, `NURSE_DIAGNOSIS_REJECTED`, `DRAFT_CERTIFICATE_CREATED`, `DOCTOR_VALIDATED_CHECKUP`, `CERTIFICATE_SIGNED_AND_SENT`, `CHECKUP_RETURNED_TO_NURSE`, `DOCTOR_SIGNATURE_UPDATED`, `CERTIFICATE_REVOKED`, `UNAUTHORIZED_SIGN_ATTEMPT`) is recorded with a SHA-256 integrity hash in the immutable audit trail.
-- **Automated Test Suite**: 25/25 unit and integration tests in `test/unit.test.js` verifying all role rules, workflow transitions, encryption at rest, and security boundaries.
+- **Tamper-Evident Audit Trail**: Every major action (`TRIAGE_ASSIGNED`, `UNAUTHORIZED_NURSE_ASSIGN_ATTEMPT`, `NURSE_DIAGNOSIS_REJECTED`, `DRAFT_CERTIFICATE_CREATED`, `DOCTOR_VALIDATED_CHECKUP`, `CERTIFICATE_SIGNED_AND_SENT`, `CHECKUP_RETURNED_TO_NURSE`, `DOCTOR_SIGNATURE_UPDATED`, `CERTIFICATE_REVOKED`, `UNAUTHORIZED_SIGN_ATTEMPT`) is recorded with a keyed HMAC-SHA256 hash chain in the immutable audit trail (with automatic archival when exceeding 1,000 entries).
+- **Automated Test Suite**: 36/36 tests in `test/unit.test.js` (25 static/crypto specification checks plus 11 live HTTP behavioral integration tests covering RBAC, CSRF, strict CSP, HMAC tampering detection, certificate verification privacy, and production secret enforcement).
