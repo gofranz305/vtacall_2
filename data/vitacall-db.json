@@ -2,21 +2,21 @@
   "users": [
     {
       "id": "usr_student1",
-      "name": "ENC:v1:12d3d761f42d7b67e9fb1fe6:8f69e102a6fa0e1e31eb5a032d4e544b:6dd4b610b0a1fb31346bf9f73ed4146b3c792f7c37d6fa",
+      "name": "ENC:v1:1d3ae46d374ccfff8f058749:5be55d284cdcb64e5d4bc3327873e5ef:1e6ddf48257aa3f5cf1828f0b1af37326bc2604ba9b2db",
       "email": "harvey.pagtalunan@ustp.edu.ph",
-      "passwordHash": "$2b$10$Rz0.K3MNohiYF.VWbayQn.4pODZ4XbX0nNJBhCOCO1fZAIKUli/uu",
+      "passwordHash": "$2b$10$8xD9Put1TXiO7tThI7Br7eMY.Usoh2R4gA.MM9CyHa0NtjRZpU4eK",
       "role": "requester",
       "status": "active",
-      "mustChangePassword": true,
-      "studentId": "ENC:v1:8787176520695f0a125bf138:109506e26023b40104fa79ce19ea2073:39b2c5ae043991706c38",
+      "mustChangePassword": false,
+      "studentId": "ENC:v1:8b02c31bda5da38136590c90:fa5efed5736db19e31b635c0d66d4fb2:14eb7b3dff791c78421b",
       "courseAndYear": "BS Information Technology - 3rd Year",
-      "boardingHouse": "ENC:v1:2995597876b3d7dba08f2d4b:312cc711c23558fadc2cb8e3fa8b4cd5:c88f628542b4429d942c72b4384e3a6f58cd83d78b707e5a58bf946110c2d1f7",
-      "address": "ENC:v1:b0c6cdcaa65f90387f611eee:f4e4edecb9f2eff5d003a393ace7e34a:a0339acd303c768c298a81137940b8dc3207fc7c9d71e1353fb08f5ba176ab50767ed030e82326b4cca01e",
-      "landmark": "ENC:v1:63c8dddb8876c56ddb63afcf:44ec9d9304a13b3f104ec3a7331d2f13:4877603f470e66404761cffdeff6dd692869494e3d53fcce0d09774310687d08a091f6e505247c6651c9ce1652ae53636ab2",
-      "phone": "ENC:v1:037e551c886dd7d50d860233:bb8d42436514f059c46a1c0d2232f09a:87c5fceb1d653dbc653b4bd0948fe2a3",
+      "boardingHouse": "ENC:v1:c5a2b0816d057b4d76affa8f:8a2fb9642d84fc099f83336912360a06:602970efa8742370d9045565ce62ffb8c69f830f1f4314b19982ed0e809e6a5d",
+      "address": "ENC:v1:7fec2224ee8a2c8e66177804:edbf2ce3e003e70fb929a230d6cf5fae:c53b2115975bbddcff4ba2767891f356537912829d6fbcb07cd39995b982097058c54eaa81037dbd809457",
+      "landmark": "ENC:v1:b5f07f6d1bb741bf17161edd:da5a48888c4a305b4660ea7051908aaf:69a306e9905d5c150630e84de26eb4af66c16367f7563f29340b078113954d1ec46e11ec51ed0b3b4e81af121e6ee23f329d",
+      "phone": "ENC:v1:0a1d7d861c71bd4047af6a3a:9b995c067038e9c10f160b04bd16586f:b12b2f2e2e1f3c23f08943a5dc3fd17a",
       "emergencyContact": {
-        "name": "ENC:v1:e725823ff944ce2f07e6454e:98605752c6bb6f8d5137d2d6f562a443:ab1c81f1ead86c207b4d65143d18039460575d92f97edbfdd2",
-        "phone": "ENC:v1:8f46c93b59cabad5c1c0283d:30e74426153e28cb0784facbae369e1c:383e666e12200e8543a4f4bb110efefb"
+        "name": "ENC:v1:61f0f15e0ec29067532f586c:71fabcdf89a48bc9b36a0e436067bb54:4e3694c77566b9932f2134cc27c1f72bbe67f8f40f07f52813",
+        "phone": "ENC:v1:3a11e71d933e736aa7f00a88:286bcba7cef9448137669384202bd18a:56df7a9c3a79bae26ed16d83d5cf09a9"
       },
       "permissions": {
         "canSubmitRequests": true,
@@ -53,21 +53,21 @@
     },
     {
       "id": "usr_student2",
-      "name": "ENC:v1:6102a1ed5b3913f4d6f6dfbb:09b3bd6b76576d76928c8405bae5e859:48b16320498d20df1c780952c0e5b9c29146dc",
+      "name": "ENC:v1:1297468c34b62d8cd4c28346:741fa046356541da84aaf6e06a3a59a2:ff5ef932b0b7a11f6f8e0b4ae4cdd38649f6e2",
       "email": "franz.go@ustp.edu.ph",
-      "passwordHash": "$2b$10$Rz0.K3MNohiYF.VWbayQn.4pODZ4XbX0nNJBhCOCO1fZAIKUli/uu",
+      "passwordHash": "$2b$10$8xD9Put1TXiO7tThI7Br7eMY.Usoh2R4gA.MM9CyHa0NtjRZpU4eK",
       "role": "requester",
       "status": "active",
-      "mustChangePassword": true,
-      "studentId": "ENC:v1:4207a34060694d84281539a8:8ed6bfda79e307c660978bb3101af3e4:2daee9acdf04b4b8e037",
+      "mustChangePassword": false,
+      "studentId": "ENC:v1:31d815337f48f71568eebf91:3972095d98e78ee9cbec4ed0b597c9fa:e4eecc24546a0e671fd9",
       "courseAndYear": "BS Information Technology - 3rd Year",
-      "boardingHouse": "ENC:v1:2a4c13962005ce8226b76a3e:5bcb057957b42ec1f2d1c5e16bdc9c98:654eb2ffde0cdfdf9084cf4b6836335c2e70d6852e48c6e83e6c42962a79a7d838",
-      "address": "ENC:v1:f5bccfb1d7c69f4ca01bbbf3:d873e745c8c04fe11634af16b76c329c:c42cad2300a7e11a09a232cee09064182403fc393cdb09b3e132af9fa3261a4a264a6d3c7795d7484d7848519a6f7723",
-      "landmark": "ENC:v1:020a84acc892edd2f29935ab:c68323cb460e096d010ca5bfaf0bda0c:02e11229f17eb7325ab7a44dced67c002336e3da7dc14fe56c19641f9b112b1957b22202fa909a091b7b10ad",
-      "phone": "ENC:v1:f64a5df8249b933515233deb:fcf12c664c1b85e56dce9a8dd0593f1e:f2375229136d4a49cc11742b1b6167de",
+      "boardingHouse": "ENC:v1:0640ee1d6e117675bba5a96b:dd6b3b683add91ce8ae33ceaff2e2fe1:a3e6faafac606ed011dd6777c2d9a871fdacea7d2d61a028b04f341dd70c4aab21",
+      "address": "ENC:v1:d82eb60addfbed1bde2355b7:43ad1a667e4814ee45f1fba1e52d7735:0da8321e63d0d9e0d9b64d209e30b74b2507f5e7178b3f2a8f730c670c0a0845dc41b47790d069106a259d6c1863ed5e",
+      "landmark": "ENC:v1:99d5f5afd901a62a0504b18e:65d676458919b77f940621ac66ee44f0:f0284315ae7c4717e66081129eedb37f99ca1d3a33299fb09bd6af96ebbb40b3b5038090d7dec5b25ad629da",
+      "phone": "ENC:v1:943e684fe8245b8b6d4aef71:f4e80ea04191baa91a45f8191ab3845b:4afeb7de93eb3b5c345665768fbf96be",
       "emergencyContact": {
-        "name": "ENC:v1:e940903c30b8ad2049b9024a:6777a78925496ed20fc10ed391b6565b:befb4197a5e31dce0a507a76c6c78750b55cb5",
-        "phone": "ENC:v1:fd771e9a46b25eba848e304f:0d06a498771c24bed7fdb1f77964788d:5c3d7fe28299c00daf417ed7381eba5f"
+        "name": "ENC:v1:4b60127664b6218823edeed3:d8fd3f3f97555e02458a5f8b0f81c706:b8cbd4d312ee3580be8b085e8ea0e4307e71fa",
+        "phone": "ENC:v1:a745660c39782003c9bedcb8:70496582efed57339fe7d546496e710d:52945bfdaa12c9d54f3155b84c4f7e98"
       },
       "permissions": {
         "canSubmitRequests": true,
@@ -104,21 +104,21 @@
     },
     {
       "id": "usr_student3",
-      "name": "ENC:v1:9e280a80e1da1afe72f37a1e:2ca6201c16e1d0dcd3e78a74f6af3552:5490a6a3ef7dc6160b0389d0031f183ed2e52a",
+      "name": "ENC:v1:f3f5dd71f3b849787949bcf4:ad23299a99c101ed4d743ded9be7b188:17bbbb585f0072e6761870eedb594cc096af23",
       "email": "jelly.maniscan@ustp.edu.ph",
-      "passwordHash": "$2b$10$Rz0.K3MNohiYF.VWbayQn.4pODZ4XbX0nNJBhCOCO1fZAIKUli/uu",
+      "passwordHash": "$2b$10$8xD9Put1TXiO7tThI7Br7eMY.Usoh2R4gA.MM9CyHa0NtjRZpU4eK",
       "role": "requester",
       "status": "active",
-      "mustChangePassword": true,
-      "studentId": "ENC:v1:8ad978003be6661d4f6d906f:9572cbec392f146f78b520c0d3c18c0b:53581bd642afd2fc5c7e",
+      "mustChangePassword": false,
+      "studentId": "ENC:v1:39a3f0da251e5a123814ec65:975e593dcf0d15c49c342eb06aeeaa71:21d1bbad7ad48e8adaf1",
       "courseAndYear": "BS Information Technology - 3rd Year",
-      "boardingHouse": "ENC:v1:c64111b7ce7f5d9caa6d599b:53673ba0be31e157d5a0fd1250b62ce0:a26cde3973b44039b73796eef8fca1fe5172cd609d9ecb8553b67931dd53",
-      "address": "ENC:v1:c7aa953218295794af199959:5b43e3a9ff19bb1cd7d0ea59e5c67ad5:cf05c88de3a8aa8e3f6d111638171a95d8f9ce46a2c043535746ca33577f861a0734152537c27c3d18f8509bafcce3e2",
-      "landmark": "ENC:v1:39be0344a9f3bfa99fa06d6c:005fbc53819771aa5c6bb19533154df3:74d98cc80ffb13c33729e8ed58a7496394818e5cdf60ebc99fe7e921b7c3694a805a8f52aa8a",
-      "phone": "ENC:v1:1f7bbd8385ed7129101666bb:3ec932f6d8d4979ee72c5eb8cc3e75bb:fc88145e7183e7a7f3f648af989adc76",
+      "boardingHouse": "ENC:v1:cc3a01c4e831b0dad0f12003:e6823b545f18543729d731cdb840ba9d:9ff290d77d5c5a5a67cdf5bba71632d2ec9c4e33666d1141caf518a19e39",
+      "address": "ENC:v1:82eee5b75c47dd9c5b78a521:840cca31dc6864bf96d35019c3d0fa79:f44c55b95fffe6a09143102fe7cf6d762cccc9b7e04601432bc866e1b521b202c8ec7b8f091b135b8f9fe55536589961",
+      "landmark": "ENC:v1:09c857b79db0dad4712297e3:da02127b2cff31f211d7edda886347d7:7e43071546e5b95d6ea3a2580634381c61e5e7a9140d5d52950b6b18d4e4fe0a74326821db0f",
+      "phone": "ENC:v1:c1b4e514acdff3839c36e766:3b9496c6fba7dbf51fc036bfe75b8297:7b3d159ca86b12d2b881f74ed94e3044",
       "emergencyContact": {
-        "name": "ENC:v1:0dc166c5aadf57664f3a94f8:6bc4f7cb2166bf64df6a2cfcfac7be1d:2ec542fe9962eaa77f709942b2346a94fcca66e56746677f8b53da",
-        "phone": "ENC:v1:a12eb33bf730e20add08be9b:0c0416be313be38d2ace216266a62d87:defef478e585577e87bdae55584ec3f5"
+        "name": "ENC:v1:0b9f9f99add9360b31f7eaa6:37cdc99e487e3f33d094f14e13cf2139:1b203a43b99219176505a7fb7c787856662651fef4e38ae6f9f3fc",
+        "phone": "ENC:v1:b4daa450f27f9f2e58f1febb:db0cbca9e5aefd1195a3b9d3258f102b:61459f4c4036ae53dca44c3af0fa6b2b"
       },
       "permissions": {
         "canSubmitRequests": true,
@@ -155,15 +155,15 @@
     },
     {
       "id": "usr_nurse1",
-      "name": "ENC:v1:f810c2aff025368a6da68a4b:bb0ae7880ff81a915e53b0bec2a6b0f9:cd704699d8837d40fca536e85d6f13aba1e1d7568dee4c9916",
+      "name": "ENC:v1:1cbdca1f7bd87d9db6bfd458:5ef07851c09f8e5d3847ab680a02640a:0fd96c4b0de4f3ca462702c00437ae0b02817b30e1a879a83f",
       "email": "nurse.sarah@ustp.edu.ph",
-      "passwordHash": "$2b$10$Rz0.K3MNohiYF.VWbayQn.4pODZ4XbX0nNJBhCOCO1fZAIKUli/uu",
+      "passwordHash": "$2b$10$8xD9Put1TXiO7tThI7Br7eMY.Usoh2R4gA.MM9CyHa0NtjRZpU4eK",
       "role": "personnel",
       "status": "active",
-      "mustChangePassword": true,
+      "mustChangePassword": false,
       "title": "Campus Health Nurse - Off-Site Response Team",
       "licenseNumber": "PRC RN-0982341",
-      "phone": "ENC:v1:ada2999b81b55042494e7cf9:705a7c2e1b5b4dd3b6be2147a8a47912:ba89b09942b9fef47d0bc51e915a9705",
+      "phone": "ENC:v1:80553a4e83ebfe84285927e7:72d8072778aa6f112964e24f3aee392b:422b5025c9013b3bd6d716fe361d1a49",
       "permissions": {
         "canSubmitRequests": false,
         "canViewCertificates": true,
@@ -191,7 +191,45 @@
         "defaultExcusedDays": 3,
         "showLicenseOnCert": true,
         "showAnnouncements": true,
-        "defaultFollowUpNote": "Advised boarding house landlord to monitor student; contact clinic if fever persists beyond 48 hours."
+        "defaultFollowUpNote": "Advised boarding house landlord to monitor student; contact clinic if fever persists beyond 48 hours.",
+        "weeklySchedule": {
+          "0": {
+            "enabled": true,
+            "start": "00:00",
+            "end": "23:59"
+          },
+          "1": {
+            "enabled": true,
+            "start": "00:00",
+            "end": "23:59"
+          },
+          "2": {
+            "enabled": true,
+            "start": "00:00",
+            "end": "23:59"
+          },
+          "3": {
+            "enabled": true,
+            "start": "00:00",
+            "end": "23:59"
+          },
+          "4": {
+            "enabled": true,
+            "start": "00:00",
+            "end": "23:59"
+          },
+          "5": {
+            "enabled": true,
+            "start": "00:00",
+            "end": "23:59"
+          },
+          "6": {
+            "enabled": true,
+            "start": "00:00",
+            "end": "23:59"
+          }
+        },
+        "leaveRanges": []
       },
       "failedLoginAttempts": 0,
       "lockedUntil": null,
@@ -200,16 +238,16 @@
     },
     {
       "id": "usr_doc1",
-      "name": "ENC:v1:e3399ca8f92c5e63cad7225f:6bd96ba8f4ac30fe51a8dd4180229420:b4d796b529723434ad1e4dff3105c5cc09cc37b8cea2",
+      "name": "ENC:v1:d8b6fbce4e5377d870d8ae98:cb27fc8b9ba00c22036942b9ddc91925:e9465feb526ecd1ef36ade4334777b48cb8e97a51ef6",
       "email": "dr.santos@ustp.edu.ph",
-      "passwordHash": "$2b$10$Rz0.K3MNohiYF.VWbayQn.4pODZ4XbX0nNJBhCOCO1fZAIKUli/uu",
+      "passwordHash": "$2b$10$8xD9Put1TXiO7tThI7Br7eMY.Usoh2R4gA.MM9CyHa0NtjRZpU4eK",
       "role": "doctor",
       "status": "active",
-      "mustChangePassword": true,
+      "mustChangePassword": false,
       "title": "USTP Campus Physician / Medical Officer",
       "licenseNumber": "PRC MD-0054321",
-      "phone": "ENC:v1:a26c28cf4a8932cb992580cc:cf56d0fb2f1f42c77be46763b9abf3ba:d3ae7394bbeff48577ba648a9622ffac",
-      "doctorSignature": "ENC:v1:0adc4715ed75e26408c84073:1c06d6992d3e8634ba41ec385cd46846:324681a52fd82d1f00e4b9d5f0ebfd33aa7dbe9ddc48f78406ec19e08690c994a3d84c3bfcb64025bf884c1cfca987691b8267f3579c77aa7c76d6fe3e573277962aeba89f7f58db4436d377f4935259715281e86bc07fe4cf1cdd1bfd2dd802dfa8c20fb6d83d1950063a8e6bf5a2b08eb3863b698a4fd4e990e73152c8f0a4e6b26a5f18275e9062f88f45dc960b30e4b5f29e979d8f39a82858d03d6c2a5926bed8c0614df1e44622e455eee8437899eca7e954cc691cc28a8b220c1888926aed4efdd700c2587667da375709b5bcbbab104caf8ccd05e73f179a71a97eec5f43995c5c544f89a486d4a1f3638414cd468ffd3e152353548b8c18fe690d095c2564138a4f63755f08fa6ded07d91a96a5c2d91ff787ef7d974a5948d04475ed5f1481259701c0ec4d855f6de4592f1b0f568278dd77fa3b7d73fad8bb5ace0465925721eb14d3a9600e1e2ceb822d8bdd60fc2fb0533d7086c72c8ffa53450bb8105fd78e87e2476bf09e0c6bc2f74fccca43f1e27d89eac74e2cacd4f73e380fe077a1a8858a03cedc795498daccec203e787339437bbf31472c25817b338ab2dcc7b8e307763e2fa67415776fe4de101a75f446b207d4ade86a6cfe7cb9062cdc0c12409ca8d7f78853baa8efc7482875fab4593e29443ba3685dc045d4e884fc5051ac31d26219af29a51775ae4b4b33ce98eddf1c55b11f36e5b1b38fb1c7d544ed7fd371b41d34ce556d88b283134a9c1e6dd8e76ee0cc2b6ae60501109eeaf5519e9634ba5b2dda30aba2e05095d5642fb17cdd3f7a4459ac96cd833bc270abaabeec1349e31b540909ff83af9e02d9d234ad8cdda789256840d0c5be512c579d2f009155612c06e1bfd26fad8a4c08093e674201e998ec550a9d48ef65",
+      "phone": "ENC:v1:cb0447893ba64574f3203d81:f83597fce53d442cf06dd8af344f20da:ac390685f606b248df5980b608c06273",
+      "doctorSignature": "ENC:v1:d2b3f4fa9a511f942349eae7:222d14fb36fdb2b7ef2986a0fe02788b:d5558457414e0c15da30e229b45bc35d7a9509e8b7a80f14b689c329938677a85098a365b341f864c62f3b9ea6b83ae49e378cb510957fecf0dea627baa075b08de40e02143a025206da55e29ba04432e104b7d686b4153022b58472784918baf7ae7a809046522cdcbd9efecdcff3cc0d9f8cefa1aab1f157929680c2e9a73059b8295e024594d4a210e9e694356cf63155c5fd8553ad75cf6588fe7db9b41b4a449b81c5cd3bbbfa17fb69ba468375ef033e7d751ef1bcd10363638b476f43f39e761c7cefda5d3438b9a3bcd1efbd8954b7f6a0f2e6f4b86a2de712cd94bba4efe8edb6bebc3c62554b992f6bc48ce7e66c1c676e093d7f15221385fcfb7b25c6dbcf87da398100d7fd98fc874c708f83a36c621c0f8196c838ad72bb407f1d887c8d5e6195ac0436ff8b5ff5757e30939637cb30fb7ee775bcdb1d2c95cc90f348c9cf8395b09327200990f6948baf5815f27d8fba60c0a7e27c590a28390a855e51796cae72a23d5a48bd554882d53bb104f184ea2d0d26e8fcb801a9801ee926b4a23e126914711fc24e84736a090b3dfece12cc872438acaf5c290f16262578d98eb8b6b677174f82d9c38e6aebd68ca58ab9b05ad280e8a22799a7ac5819f82e1fcf8a8e1267acc8948c49dc74386aead3146a7687aba5b50e8312011f52f2d02d5ca837e475296d43d821364d1ae8196a0a7ec1d814c41d72610e0ceee795ad4a7caae33ea671d860e8a239527b76bc784d204dcec979fe8d3d0312eaaea5f0d590e447a42f4136da19e47d738889da6dd40eb59a5130673769d204c954c7ae94fdfb38a5d9598548ff9b668deaead386441b2a68abc72ac4270c47204be3aa439f0ab0d0647c758140e98f926085e5779f9917f3810748b589c0e7fc25",
       "permissions": {
         "canSubmitRequests": false,
         "canViewCertificates": true,
@@ -241,19 +279,20 @@
       "failedLoginAttempts": 0,
       "lockedUntil": null,
       "createdAt": "2026-10-01T08:00:00.000Z",
-      "lastLoginAt": "2026-10-01T08:00:00.000Z"
+      "lastLoginAt": "2026-11-27T04:03:02.896Z",
+      "lastLoginIp": "127.0.0.1"
     },
     {
       "id": "usr_admin1",
-      "name": "ENC:v1:529f40a66907bcf192fc28ca:0dbdaa3bd89461ad7d0e049a53fd5c7a:41b5ec9e66c1026be0abd0eebc17",
+      "name": "ENC:v1:4a668d27677f44b08dab29d6:c17e7344ad73b5dbed3403ea2292c63c:b465b35fab06feeb2cfe5d2de8d2",
       "email": "admin.clinic@ustp.edu.ph",
-      "passwordHash": "$2b$10$Rz0.K3MNohiYF.VWbayQn.4pODZ4XbX0nNJBhCOCO1fZAIKUli/uu",
+      "passwordHash": "$2b$10$8xD9Put1TXiO7tThI7Br7eMY.Usoh2R4gA.MM9CyHa0NtjRZpU4eK",
       "role": "admin",
       "status": "active",
-      "mustChangePassword": true,
+      "mustChangePassword": false,
       "title": "Director of Student Health & Wellness Center",
       "licenseNumber": "USTP-ADMIN-001",
-      "phone": "ENC:v1:b66a448fadbf476d7cb6829b:ecf5f11e49536a22dbc987a666407af6:7877860246180cc04528f9a36021d52b",
+      "phone": "ENC:v1:f7d66c305b0ea819e2342b24:af94b83113fddffc1dd53e021ff1a58e:9f2b0177e43ebe085b9ae8ef991f4b34",
       "permissions": {
         "canSubmitRequests": false,
         "canViewCertificates": true,
@@ -293,8 +332,53 @@
   "certificates": [],
   "auditLogs": [
     {
+      "id": "AUD-DD0D0659-DE3",
+      "timestamp": "2026-11-27T04:03:18.750Z",
+      "userId": "usr_doc1",
+      "userName": "usr_doc1",
+      "userRole": "doctor",
+      "action": "USER_LOGOUT",
+      "targetEntity": "user",
+      "targetId": "usr_doc1",
+      "details": "User logged out successfully from web application.",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
+      "prevHash": "3a3fd957c2fd440f48f605c305a6fd7f46cbd1092f9d607f514802011dbc2067",
+      "integrityHash": "d6de977f4d6cbd31851615f1c9a80bdf349857a8e496aa974c05b445a2d2b741"
+    },
+    {
+      "id": "AUD-1F84159B-6F0",
+      "timestamp": "2026-11-27T04:03:02.900Z",
+      "userId": "usr_doc1",
+      "userName": "usr_doc1",
+      "userRole": "doctor",
+      "action": "USER_LOGIN",
+      "targetEntity": "user",
+      "targetId": "usr_doc1",
+      "details": "User logged in successfully via web interface.",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
+      "prevHash": "6340027043fd4f4714cde9dd7b79f2f180844e5fad4366cf4d2a82f694f69f27",
+      "integrityHash": "3a3fd957c2fd440f48f605c305a6fd7f46cbd1092f9d607f514802011dbc2067"
+    },
+    {
+      "id": "AUD-3F81F557-9E9",
+      "timestamp": "2026-11-27T04:02:58.843Z",
+      "userId": "usr_nurse1",
+      "userName": "usr_nurse1",
+      "userRole": "personnel",
+      "action": "USER_LOGOUT",
+      "targetEntity": "user",
+      "targetId": "usr_nurse1",
+      "details": "User logged out successfully from web application.",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
+      "prevHash": "2aa72261ea6583cd01f373f75c810b7e11d2d15cdef80e2d5b47f3969ecbdf84",
+      "integrityHash": "6340027043fd4f4714cde9dd7b79f2f180844e5fad4366cf4d2a82f694f69f27"
+    },
+    {
       "id": "AUD-GENESIS-001",
-      "timestamp": "2026-11-23T09:28:15.040Z",
+      "timestamp": "2026-11-27T03:59:09.367Z",
       "userId": "system",
       "userName": "VitaCall System",
       "userRole": "system",
@@ -305,7 +389,7 @@
       "ipAddress": "127.0.0.1",
       "userAgent": "VitaCall Security Kernel",
       "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
-      "integrityHash": "808ac426ed1ba3a5057ed3f4e813d8f9652cd891cdd7ec67af082a3d7c8b7032"
+      "integrityHash": "2aa72261ea6583cd01f373f75c810b7e11d2d15cdef80e2d5b47f3969ecbdf84"
     }
   ],
   "notifications": [],
@@ -339,10 +423,36 @@
       "expiresAt": null
     }
   ],
-  "securityEvents": [],
+  "securityEvents": [
+    {
+      "id": "SEC-E21344F7-571",
+      "timestamp": "2026-11-27T04:03:02.904Z",
+      "type": "LOGIN_SUCCESS",
+      "severity": "low",
+      "email": "[REDACTED-EMAIL]",
+      "userId": "usr_doc1",
+      "userName": "usr_doc1",
+      "userRole": "doctor",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
+      "details": "Authenticated session started for usr_doc1 (doctor).",
+      "resolved": true
+    }
+  ],
   "backups": [],
-  "revokedTokens": [],
+  "revokedTokens": [
+    {
+      "jti": "3d46496f-720f-49b6-90b1-f80cbe815b59",
+      "expiresAt": 1795759022000
+    },
+    {
+      "jti": "cffb962d-51bb-4c57-9116-ffcb36217638",
+      "expiresAt": 1795759382000
+    }
+  ],
   "activeSessions": {},
+  "passwordResets": {},
+  "passwordResetTickets": [],
   "systemSettings": {
     "systemName": "VitaCall",
     "systemSubtitle": "Mobile Health Request & Monitoring",
@@ -367,7 +477,7 @@
     "defaultCertValidityDays": 7,
     "firebaseSyncEnabled": true,
     "firebaseProjectId": "vitacall-ustp-villanueva",
-    "updatedAt": "2026-11-23T09:28:14.955Z",
+    "updatedAt": "2026-11-27T03:59:09.299Z",
     "updatedBy": "Mr. Franz Cruz"
   }
 }

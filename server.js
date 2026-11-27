@@ -16,12 +16,12 @@ const createAdminRouter = require('./lib/routes/admin');
 const app = express();
 app.set('trust proxy', 1);
 
-// Security Headers via Helmet + Strict CSP (no unsafe-inline scripts, no third-party QR CDN)
+// Security Headers via Helmet + Strict CSP (self-hosted vendor scripts, no unsafe-inline scripts, no third-party QR CDN)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://cdn.tailwindcss.com', 'https://unpkg.com', 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
+      scriptSrc: ["'self'"],
       scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],

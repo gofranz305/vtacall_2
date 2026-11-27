@@ -71,5 +71,30 @@ npm run build
 
 - **AES-256-GCM Encryption at Rest**: Sensitive medical fields — including `diagnosis`, `prescribedMedication`, `prescriptionAndCare`, `nurseNotes`, `symptomsObserved`, and `doctorSignature` — are encrypted at rest (`ENC:v1:...`) in `data/vitacall-db.json` using AES-256-GCM.
 - **Privacy-Preserving Public QR Verification (`GET /api/verify-certificate/:code`)**: Public verification only succeeds for doctor-signed, valid certificates (rejecting drafts and revoked certificates) and **never** exposes clinical diagnosis, prescribed medication, vitals, or nurse notes.
-- **Tamper-Evident Audit Trail**: Every major action (`TRIAGE_ASSIGNED`, `UNAUTHORIZED_NURSE_ASSIGN_ATTEMPT`, `NURSE_DIAGNOSIS_REJECTED`, `DRAFT_CERTIFICATE_CREATED`, `DOCTOR_VALIDATED_CHECKUP`, `CERTIFICATE_SIGNED_AND_SENT`, `CHECKUP_RETURNED_TO_NURSE`, `DOCTOR_SIGNATURE_UPDATED`, `CERTIFICATE_REVOKED`, `UNAUTHORIZED_SIGN_ATTEMPT`) is recorded with a keyed HMAC-SHA256 hash chain in the immutable audit trail (with automatic archival when exceeding 1,000 entries).
-- **Automated Test Suite**: 36/36 tests in `test/unit.test.js` (25 static/crypto specification checks plus 11 live HTTP behavioral integration tests covering RBAC, CSRF, strict CSP, HMAC tampering detection, certificate verification privacy, and production secret enforcement).
+- **Tamper-Evident Audit Trail**: Every major action (`TRIAGE_ASSIGNED`, `UNAUTHORIZED_NURSE_ASSIGN_ATTEMPT`, `NURSE_DIAGNOSIS_REJECTED`, `DRAFT_CERTIFICATE_CREATED`, `DOCTOR_VALIDATED_CHECKUP`, `CERTIFICATE_SIGNED_AND_SENT`, `CHECKUP_RETURNED_TO_NURSE`, `DOCTOR_SIGNATURE_UPDATED`, `CERTIFICATE_REVOKED`, `UNAUTHORIZED_SIGN_ATTEMPT`, `BACKUP_RESTORED`, `BOOTSTRAP_ADMIN_CREATED`) is recorded with a keyed HMAC-SHA256 hash chain in the immutable audit trail (with automatic archival when exceeding 1,000 entries). *Note: Existing historical audit entries are kept untouched so their cryptographic HMAC hash chain remains verifiable, while all new audit entries and notifications scrub personal names, emails, phones, and boarding house addresses in favor of record IDs.*
+- **Standalone Encrypted Backups**: Database snapshots (`POST /api/admin/backups` and scheduled automatic backups) are stored as standalone whole-file **AES-256-GCM** encrypted `.enc` files (`mode 0o600`) inside `data/backups/`, with only metadata and SHA-256 checksums kept in `vitacall-db.json`. Restoring requires administrator password re-entry, verifies the SHA-256 hash and GCM auth tag, and creates an automatic pre-restore safety backup first.
+- **Automated Test Suite**: 48/48 tests in `test/unit.test.js` covering RBAC, CSRF, strict self-hosted CSP, HMAC tampering detection, standalone encrypted backups, non-destructive Firestore sync, production admin bootstrap, PII redaction, and nurse schedule enforcement.
+
+---
+
+## 🚀 3. First-Run Production Bootstrap
+
+In production (`NODE_ENV=production`), VitaCall refuses to start unless `VITACALL_JWT_SECRET`, `VITACALL_ENCRYPTION_KEY`, and `VITACALL_HMAC_KEY` are all set to 64-character hex keys, and does **not** seed demo accounts.
+
+To bootstrap the initial Clinic Director / Administrator on first startup:
+1. Set `BOOTSTRAP_ADMIN_EMAIL` (and optionally `BOOTSTRAP_ADMIN_NAME`) in your environment before starting the server.
+2. On first startup when zero admin accounts exist, VitaCall creates one admin account with `mustChangePassword=true` and prints the random one-time temporary password **once to the server console** (never written to audit logs or disk files).
+3. Sign in with that temporary password; all API endpoints except `/api/auth/change-password` and `/api/auth/logout` return `403 PASSWORD_CHANGE_REQUIRED` until you set a new strong password. Subsequent restarts ignore `BOOTSTRAP_ADMIN_EMAIL`.
+
+---
+
+## 🛡️ 4. Privacy & Philippine Data Privacy Act (RA 10173)
+
+Health and clinical records are classified as **Sensitive Personal Information** under the **Philippine Data Privacy Act of 2012 (Republic Act No. 10173)**.
+
+- **Cloud Sync Disabled by Default**: Firestore cloud synchronization is **OFF by default** (`FIREBASE_SYNC_ENABLED=false`). When enabled, only allowlisted collections (`requests`, `clinicalRecords`, `certificates` in their AES-256-GCM encrypted form, `announcements`, and minimal user role metadata without password hashes or PII) are synchronized using incremental SHA-256 change detection and non-destructive soft deletes (`deletedAt`).
+- **Before Enabling Cloud Sync in Production**:
+  1. **Obtain Explicit Consent**: Ensure students review and accept the RA 10173 Data Privacy Consent checkbox at registration.
+  2. **Data Processing Agreement (DPA)**: Execute an institutional Data Processing Agreement with your cloud provider.
+  3. **Deliberate Region Selection**: Configure your cloud storage region deliberately (e.g., `asia-southeast1`) in accordance with institutional data residency policies.
+  4. **DPO Approval**: Confirm deployment architecture and retention policies with your academic adviser or the University Data Protection Officer (DPO).

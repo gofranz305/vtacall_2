@@ -170,6 +170,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   initCspEventDelegation();
   fetch(`${API_BASE}/auth/csrf-token`).catch(() => {});
+  // Refresh nurse availability every 30s and on window focus for Doctor
+  const refreshNursesForDoctor = async () => {
+    if (state.currentUser && state.currentUser.role === 'doctor') {
+      try {
+        const res = await fetch(`${API_BASE}/nurses`);
+        if (res.ok) {
+          state.nurses = await res.json();
+          if (state.activeView === 'dashboard') renderPersonnelQueueList();
+        }
+      } catch (_) {}
+    }
+  };
+  setInterval(refreshNursesForDoctor, 30000);
+  window.addEventListener('focus', refreshNursesForDoctor);
 });
 
 // =========================================================================
@@ -881,6 +895,17 @@ function openCurrentDashboardSettings() {
 }
 
 function navigate(viewName) {
+  if ((_sigDraftState.profileDirty || _sigDraftState.modalDirty) && viewName !== state.activeView) {
+    if (!window.confirm('Discard changes? You have an unsaved digital signature draft.')) {
+      return;
+    }
+    _sigDraftState.profileDirty = false;
+    _sigDraftState.profileDraft = '';
+    _sigDraftState.modalDirty = false;
+    _sigDraftState.modalDraft = '';
+    const badge = document.getElementById('profSigDraftBadge');
+    if (badge) badge.classList.add('hidden');
+  }
   let targetSection = null;
   let targetView = viewName;
 
@@ -1101,7 +1126,9 @@ async function saveRoleDashboardSettings(e, role) {
       defaultExcusedDays: Number(document.getElementById('perSetDefaultExcusedDays').value) || 3,
       defaultFollowUpNote: document.getElementById('perSetFollowUpNote').value.trim(),
       showLicenseOnCert: document.getElementById('perSetShowLicense').checked,
-      showAnnouncements: document.getElementById('perSetShowAnnouncements').checked
+      showAnnouncements: document.getElementById('perSetShowAnnouncements').checked,
+      weeklySchedule: collectNurseWeeklyScheduleFromDom(),
+      leaveRanges: Array.isArray(_nurseLeaveDraft) ? _nurseLeaveDraft : []
     };
     newPassword = (document.getElementById('perSetNewPassword').value || '').trim();
   }
@@ -2034,26 +2061,216 @@ function populatePersonnelSettingsForm() {
   if (noteEl && s.defaultFollowUpNote) noteEl.value = s.defaultFollowUpNote;
   if (licEl) licEl.checked = s.showLicenseOnCert !== false;
   if (annEl) annEl.checked = s.showAnnouncements !== false;
+
+  const schedSec = document.getElementById('nurseScheduleSection');
+  if (schedSec) {
+    const isNurse = state.currentUser && state.currentUser.role === 'personnel';
+    schedSec.classList.toggle('hidden', !isNurse);
+    if (isNurse) {
+      renderNurseScheduleEditor(s);
+    }
+  }
 }
 
-function renderPersonnelCertificatesList() {
+let _nurseLeaveDraft = [];
+const NURSE_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function renderNurseScheduleEditor(settings) {
+  const sched = (settings && settings.weeklySchedule) || {};
+  const grid = document.getElementById('nurseWeeklyScheduleGrid');
+  if (grid) {
+    grid.innerHTML = NURSE_DAY_NAMES.map((dayName, idx) => {
+      const rule = sched[idx] || sched[String(idx)] || { enabled: true, start: '00:00', end: '23:59' };
+      return `
+        <div class="bg-white border border-slate-200 rounded-xl p-2.5 space-y-1.5">
+          <label class="flex items-center justify-between font-bold text-slate-800 cursor-pointer">
+            <span>${escHtml(dayName)}</span>
+            <input type="checkbox" id="nurseSchedDay_${idx}" ${rule.enabled !== false ? 'checked' : ''} class="rounded text-teal-700">
+          </label>
+          <div class="flex items-center gap-1 text-[10px]">
+            <input type="time" id="nurseSchedStart_${idx}" value="${escHtml(rule.start || '00:00')}" class="w-full px-1 py-1 bg-slate-50 border border-slate-200 rounded">
+            <span>-</span>
+            <input type="time" id="nurseSchedEnd_${idx}" value="${escHtml(rule.end || '23:59')}" class="w-full px-1 py-1 bg-slate-50 border border-slate-200 rounded">
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  _nurseLeaveDraft = Array.isArray(settings && settings.leaveRanges) ? settings.leaveRanges.map(l => ({ ...l })) : [];
+  renderNurseLeaveList();
+}
+
+function renderNurseLeaveList() {
+  const listEl = document.getElementById('nurseLeaveList');
+  if (!listEl) return;
+  if (_nurseLeaveDraft.length === 0) {
+    listEl.innerHTML = '<div class="text-[11px] text-slate-400 italic">No leave / unavailable dates scheduled.</div>';
+    return;
+  }
+  listEl.innerHTML = _nurseLeaveDraft.map((lv, idx) => `
+    <div class="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs">
+      <div>
+        <span class="font-bold text-slate-800">${escHtml(lv.startDate)} to ${escHtml(lv.endDate || lv.startDate)}</span>
+        ${lv.note ? `<span class="text-slate-500 ml-1">— ${escHtml(lv.note)}</span>` : ''}
+      </div>
+      <button type="button" data-fn="removeNurseLeaveRange" data-a1="${idx}" class="text-rose-600 hover:text-rose-800 font-bold text-[11px]">Remove</button>
+    </div>
+  `).join('');
+}
+
+function addNurseLeaveRange() {
+  const start = document.getElementById('nurseLeaveStart')?.value;
+  const end = document.getElementById('nurseLeaveEnd')?.value || start;
+  const note = (document.getElementById('nurseLeaveNote')?.value || '').trim();
+  if (!start) {
+    showToast('Select a start date for the leave range.', 'warning');
+    return;
+  }
+  _nurseLeaveDraft.push({ startDate: start, endDate: end < start ? start : end, note });
+  document.getElementById('nurseLeaveStart').value = '';
+  document.getElementById('nurseLeaveEnd').value = '';
+  document.getElementById('nurseLeaveNote').value = '';
+  renderNurseLeaveList();
+}
+
+function removeNurseLeaveRange(idx) {
+  _nurseLeaveDraft.splice(Number(idx), 1);
+  renderNurseLeaveList();
+}
+
+function collectNurseWeeklyScheduleFromDom() {
+  const out = {};
+  for (let i = 0; i < 7; i++) {
+    out[i] = {
+      enabled: Boolean(document.getElementById(`nurseSchedDay_${i}`)?.checked),
+      start: document.getElementById(`nurseSchedStart_${i}`)?.value || '00:00',
+      end: document.getElementById(`nurseSchedEnd_${i}`)?.value || '23:59'
+    };
+  }
+  return out;
+}
+
+function cancelNurseScheduleChanges() {
+  populatePersonnelSettingsForm();
+  showToast('Schedule and settings changes discarded.', 'info');
+}
+
+const _docCertState = {
+  q: '',
+  status: 'all',
+  from: '',
+  to: '',
+  sort: 'newest',
+  page: 1,
+  limit: 10,
+  totalAll: 0
+};
+let _docCertSearchTimer = null;
+
+function onDocCertSearchInput() {
+  _docCertState.q = document.getElementById('docCertSearchInput')?.value || '';
+  _docCertState.page = 1;
+  clearTimeout(_docCertSearchTimer);
+  _docCertSearchTimer = setTimeout(() => {
+    renderPersonnelCertificatesList();
+  }, 300);
+}
+
+function onDocCertFilterChange() {
+  _docCertState.from = document.getElementById('docCertFromDate')?.value || '';
+  _docCertState.to = document.getElementById('docCertToDate')?.value || '';
+  _docCertState.sort = document.getElementById('docCertSort')?.value || 'newest';
+  _docCertState.page = 1;
+  renderPersonnelCertificatesList();
+}
+
+function setDocCertStatusChip(statusVal) {
+  _docCertState.status = statusVal || 'all';
+  _docCertState.page = 1;
+  document.querySelectorAll('.doc-cert-chip').forEach(btn => {
+    const active = btn.dataset.a1 === _docCertState.status;
+    btn.className = active
+      ? 'doc-cert-chip px-3 py-1 rounded-full font-bold bg-ustp-navy text-white'
+      : 'doc-cert-chip px-3 py-1 rounded-full font-bold bg-slate-100 text-slate-700 hover:bg-slate-200';
+  });
+  renderPersonnelCertificatesList();
+}
+
+function changeDocCertPage(delta) {
+  _docCertState.page = Math.max(1, _docCertState.page + Number(delta));
+  renderPersonnelCertificatesList();
+}
+
+async function renderPersonnelCertificatesList() {
   const container = document.getElementById('personnelCertificatesList');
   if (!container) return;
 
+  // Restore saved search value when switching tabs
+  const searchInp = document.getElementById('docCertSearchInput');
+  if (searchInp && searchInp.value !== _docCertState.q) {
+    searchInp.value = _docCertState.q;
+  }
+
   const isDoctor = state.currentUser && state.currentUser.role === 'doctor';
-  const certs = state.certificates || [];
+  const params = new URLSearchParams({
+    q: _docCertState.q,
+    status: _docCertState.status,
+    from: _docCertState.from,
+    to: _docCertState.to,
+    sort: _docCertState.sort,
+    page: String(_docCertState.page),
+    limit: String(_docCertState.limit)
+  });
+
+  let certs = state.certificates || [];
+  let total = certs.length;
+  let totalPages = 1;
+  let page = 1;
+  try {
+    const res = await fetch(`${API_BASE}/certificates?${params.toString()}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.items)) {
+        certs = data.items;
+        total = data.total;
+        totalPages = data.totalPages || 1;
+        page = data.page || 1;
+        _docCertState.page = page;
+      }
+    }
+  } catch (_) {}
+
+  const totalAll = Math.max((state.certificates || []).length, total);
+  const countEl = document.getElementById('docCertResultCount');
+  if (countEl) {
+    countEl.textContent = `${total} of ${totalAll}`;
+  }
+
+  const pagEl = document.getElementById('docCertPagination');
+  if (pagEl) {
+    pagEl.innerHTML = total > 0 ? `
+      <span class="text-slate-500">Page ${page} of ${totalPages} (${total} matching)</span>
+      <div class="flex items-center gap-1.5">
+        <button type="button" data-fn="changeDocCertPage" data-a1="-1" ${page <= 1 ? 'disabled' : ''} class="px-2.5 py-1 rounded border border-slate-300 disabled:opacity-40 font-semibold">Prev</button>
+        <button type="button" data-fn="changeDocCertPage" data-a1="1" ${page >= totalPages ? 'disabled' : ''} class="px-2.5 py-1 rounded border border-slate-300 disabled:opacity-40 font-semibold">Next</button>
+      </div>
+    ` : '';
+  }
+
   if (certs.length === 0) {
-    container.innerHTML = `<div class="py-8 text-center text-slate-400">No medical certificates or drafts found.</div>`;
+    const qNote = _docCertState.q ? ` for "${escHtml(_docCertState.q)}"` : '';
+    container.innerHTML = `<div class="py-8 text-center text-slate-400">No certificates match your search${qNote}.</div>`;
     return;
   }
 
   container.innerHTML = certs.map(c => {
     const isDraft = c.status === 'draft' || c.isDraft === true;
     const isRevoked = c.status === 'revoked';
-    const badgeClass = isDraft
-      ? 'bg-amber-100 text-amber-800'
-      : (isRevoked ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800');
-    const badgeText = isDraft ? 'Draft • Awaiting Doctor' : (c.status || 'valid');
+    const isReturned = c.requestStatus === 'returned_to_nurse';
+    const badgeClass = isReturned
+      ? 'bg-rose-100 text-rose-800'
+      : (isDraft ? 'bg-amber-100 text-amber-800' : (isRevoked ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'));
+    const badgeText = isReturned ? 'Returned to Nurse' : (isDraft ? 'Draft • Awaiting Doctor' : (c.status || 'valid'));
 
     return `
       <div class="p-4 rounded-xl border ${isDraft ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200 bg-slate-50/70'} flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2202,6 +2419,13 @@ function renderPersonnelQueueList() {
     return;
   }
 
+  const reassignBanner = (isDoctor && list.some(r => r.needsReassignment)) ? `
+    <div class="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-950 flex items-center gap-2">
+      <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+      <span><strong>Attention Doctor:</strong> One or more assigned requests need reassignment because the assigned nurse went off duty.</span>
+    </div>
+  ` : '';
+
   const availableNurses = (state.nurses && state.nurses.length > 0)
     ? state.nurses
     : [
@@ -2209,7 +2433,7 @@ function renderPersonnelQueueList() {
         { id: 'usr_nurse2', name: 'Nurse Mark Villanueva, RN', licenseNumber: 'PRC RN-0994120' }
       ];
 
-  container.innerHTML = list.map(req => {
+  container.innerHTML = reassignBanner + list.map(req => {
     const isUrgent = req.urgency === 'severe';
     const isModerate = req.urgency === 'moderate';
     let urgencyBadge = `<span class="bg-emerald-100 text-emerald-800 text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase">Mild Urgency</span>`;
@@ -2246,16 +2470,28 @@ function renderPersonnelQueueList() {
     let actionControlsHtml = '';
 
     if (isDoctor) {
-      if (req.status === 'pending') {
+      if (req.status === 'pending' || req.needsReassignment) {
+        const nurseOpts = availableNurses.map(n => {
+          const eff = n.effectiveStatus || n.dutyStatus || 'on_duty';
+          const badge = eff === 'off_duty'
+            ? `⚪ Off duty${n.offDutyUntil ? ` until ${n.offDutyUntil}` : ''}`
+            : (eff === 'dispatched' ? '🟡 On-site' : '🟢 On duty');
+          const countTxt = `${n.activeAssignedCount || 0} open`;
+          const disabledAttr = eff === 'off_duty' ? 'disabled' : '';
+          const titleAttr = eff === 'off_duty' ? `title="${escHtml(n.availabilityReason || 'Nurse is off duty')}"` : '';
+          return `<option value="${escHtml(n.id)}" ${disabledAttr} ${titleAttr}>${escHtml(badge)} — ${escHtml(n.name)} (${escHtml(countTxt)})</option>`;
+        }).join('');
+        const fnName = req.needsReassignment ? 'reassignRequestToNurse' : 'assignRequestToNurse';
+        const btnLabel = req.needsReassignment ? 'Reassign Nurse' : 'Assign to Campus Nurse';
         actionControlsHtml = `
           <div class="flex flex-wrap items-center gap-2">
-            <select id="assignNurseSelect_${req.id}" class="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-800">
-              ${availableNurses.map(n => `<option value="${n.id}">🩺 ${escHtml(n.name)}</option>`).join('')}
+            <select id="assignNurseSelect_${escHtml(req.id)}" class="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-800">
+              ${nurseOpts}
             </select>
-            <input type="text" id="assignNurseNotes_${req.id}" placeholder="Triage note for nurse (optional)..." class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-44 sm:w-56">
-            <button data-fn="assignRequestToNurse" data-a1="${escHtml(req.id)}" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
+            <input type="text" id="assignNurseNotes_${escHtml(req.id)}" placeholder="Triage note for nurse (optional)..." class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-44 sm:w-56">
+            <button data-fn="${fnName}" data-a1="${escHtml(req.id)}" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
               <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
-              <span>Assign to Campus Nurse</span>
+              <span>${btnLabel}</span>
             </button>
           </div>
         `;
@@ -2374,7 +2610,7 @@ function renderPersonnelQueueList() {
   if (window.lucide) window.lucide.createIcons();
 }
 
-async function assignRequestToNurse(requestId) {
+async function assignRequestToNurse(requestId, allowBusy = false) {
   const selectEl = document.getElementById(`assignNurseSelect_${requestId}`);
   const notesEl = document.getElementById(`assignNurseNotes_${requestId}`);
   const nurseId = selectEl ? selectEl.value : 'usr_nurse1';
@@ -2384,9 +2620,15 @@ async function assignRequestToNurse(requestId) {
     const res = await fetch(`${API_BASE}/requests/${requestId}/assign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-      body: JSON.stringify({ nurseId, notes })
+      body: JSON.stringify({ nurseId, notes, allowBusy })
     });
     const data = await res.json();
+    if (res.status === 409 && data.requiresConfirmBusy && !allowBusy) {
+      if (window.confirm(`${data.error}\n\nProceed with assignment anyway?`)) {
+        return assignRequestToNurse(requestId, true);
+      }
+      return;
+    }
     if (!res.ok) {
       showToast(data.error || 'Failed to assign request to nurse', 'error');
       return;
@@ -2396,6 +2638,36 @@ async function assignRequestToNurse(requestId) {
   } catch (err) {
     console.error('Assign to nurse error:', err);
     showToast('Failed to assign request to nurse.', 'error');
+  }
+}
+
+async function reassignRequestToNurse(requestId, allowBusy = false) {
+  const selectEl = document.getElementById(`assignNurseSelect_${requestId}`);
+  const notesEl = document.getElementById(`assignNurseNotes_${requestId}`);
+  const nurseId = selectEl ? selectEl.value : 'usr_nurse1';
+  const notes = notesEl ? notesEl.value.trim() : '';
+
+  try {
+    const res = await fetch(`${API_BASE}/requests/${requestId}/reassign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
+      body: JSON.stringify({ nurseId, notes, allowBusy })
+    });
+    const data = await res.json();
+    if (res.status === 409 && data.requiresConfirmBusy && !allowBusy) {
+      if (window.confirm(`${data.error}\n\nProceed with reassignment anyway?`)) {
+        return reassignRequestToNurse(requestId, true);
+      }
+      return;
+    }
+    if (!res.ok) {
+      showToast(data.error || 'Failed to reassign request', 'error');
+      return;
+    }
+    showToast(data.message || 'Request reassigned!', 'success');
+    await refreshData(true);
+  } catch (err) {
+    showToast('Failed to reassign request.', 'error');
   }
 }
 
@@ -2458,8 +2730,103 @@ function openClinicalModal(requestId) {
     if (notesInput) notesInput.value = 'Patient resting in ventilated room. Advised oral hydration while awaiting Campus Doctor validation and prescription.';
   }
 
+  renderRevisionPanelForModal(req, existingCr, 'clin');
+
   hideErrorMsg('clinicalError');
   document.getElementById('clinicalModal').classList.remove('hidden');
+}
+
+function buildTextDiffHtml(oldText, newText) {
+  const a = String(oldText || '').trim();
+  const b = String(newText || '').trim();
+  if (a === b) {
+    return '<span class="text-slate-500 italic">No change</span>';
+  }
+  return `
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div class="bg-rose-50/80 border border-rose-200 rounded px-2 py-1 text-rose-900 line-through">${escHtml(a || '—')}</div>
+      <div class="bg-emerald-50/90 border border-emerald-200 rounded px-2 py-1 text-emerald-900 font-semibold">${escHtml(b || '—')}</div>
+    </div>
+  `;
+}
+
+function renderRevisionPanelForModal(req, latestCr, prefix) {
+  const revisions = Array.isArray(req.checkupRevisions) ? req.checkupRevisions : [];
+  const panel = document.getElementById(prefix === 'clin' ? 'clinPreviousRevisionPanel' : 'docValRevisionChangesPanel');
+  const sel = document.getElementById(prefix === 'clin' ? 'clinRevisionSelect' : 'docValRevisionSelect');
+  if (!panel || !sel) return;
+
+  if (revisions.length === 0) {
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+  sel.innerHTML = revisions
+    .map((rev, idx) => `<option value="${idx}" ${idx === revisions.length - 1 ? 'selected' : ''}>Rev ${escHtml(String(rev.revision || idx + 1))} (${new Date(rev.returnedAt || rev.submittedAt).toLocaleString()})</option>`)
+    .join('');
+  updateRevisionDiffDisplay(req, latestCr, prefix, revisions.length - 1);
+}
+
+function updateRevisionDiffDisplay(req, latestCr, prefix, revIdx) {
+  const revisions = Array.isArray(req.checkupRevisions) ? req.checkupRevisions : [];
+  const rev = revisions[revIdx];
+  if (!rev) return;
+
+  if (prefix === 'clin') {
+    const titleEl = document.getElementById('clinPrevRevTitle');
+    const roEl = document.getElementById('clinPrevRevReadOnly');
+    if (titleEl) titleEl.textContent = `Previous submission (Rev ${rev.revision || revIdx + 1})`;
+    if (roEl) {
+      const v = rev.vitals || {};
+      roEl.innerHTML = `
+        <div><strong>Vitals:</strong> ${escHtml(`BP: ${v.bp || '—'} | Temp: ${v.temp || '—'} | Pulse: ${v.pulse || '—'} | Resp: ${v.respRate || '—'} | SpO2: ${v.spo2 || '—'}`)}</div>
+        <div><strong>Observations:</strong> ${escHtml(rev.symptomsObserved || '—')}</div>
+        <div><strong>Nurse Notes:</strong> ${escHtml(rev.nurseNotes || '—')}</div>
+        <div class="text-rose-700"><strong>Doctor Return Note:</strong> ${escHtml(rev.returnNote || '—')}</div>
+      `;
+    }
+  } else {
+    const noteEl = document.getElementById('docValRevisionReturnNote');
+    if (noteEl) noteEl.textContent = `Return Note (Rev ${rev.revision || revIdx + 1}): ${rev.returnNote || '—'}`;
+  }
+
+  const latestVitals = (latestCr && latestCr.vitals) || {};
+  const oldVitals = rev.vitals || {};
+  const fields = [
+    ['Blood Pressure', oldVitals.bp, latestVitals.bp],
+    ['Temperature', oldVitals.temp, latestVitals.temp],
+    ['Pulse Rate', oldVitals.pulse, latestVitals.pulse],
+    ['Resp. Rate', oldVitals.respRate, latestVitals.respRate],
+    ['SpO2', oldVitals.spo2, latestVitals.spo2],
+    ['Physical Observations', rev.symptomsObserved, latestCr ? latestCr.symptomsObserved : ''],
+    ['Nurse Notes', rev.nurseNotes, latestCr ? latestCr.nurseNotes : '']
+  ];
+
+  const bodyEl = document.getElementById(prefix === 'clin' ? 'clinChangesBody' : 'docValChangesBody');
+  if (bodyEl) {
+    bodyEl.innerHTML = fields.map(([label, oldVal, newVal]) => `
+      <div class="bg-white border border-slate-200 rounded-lg p-2">
+        <div class="font-bold text-slate-700 mb-1">${escHtml(label)}</div>
+        ${buildTextDiffHtml(oldVal, newVal)}
+      </div>
+    `).join('');
+  }
+}
+
+function onClinRevisionSelectChange() {
+  const reqId = document.getElementById('clinRequestId')?.value;
+  const req = state.requests.find(r => r.id === reqId);
+  const cr = (state.clinicalRecords || []).find(c => c.requestId === reqId);
+  const idx = Number(document.getElementById('clinRevisionSelect')?.value || 0);
+  if (req) updateRevisionDiffDisplay(req, cr, 'clin', idx);
+}
+
+function onDocValRevisionSelectChange() {
+  const reqId = document.getElementById('docValRequestId')?.value;
+  const req = state.requests.find(r => r.id === reqId);
+  const cr = (state.clinicalRecords || []).find(c => c.requestId === reqId);
+  const idx = Number(document.getElementById('docValRevisionSelect')?.value || 0);
+  if (req) updateRevisionDiffDisplay(req, cr, 'docVal', idx);
 }
 
 function closeClinicalModal() {
@@ -2517,10 +2884,42 @@ async function submitClinicalRecord(e) {
 // =========================================================================
 
 const _sigPadState = {};
+const _sigDraftState = {
+  profileDraft: '',
+  profileDirty: false,
+  modalDraft: '',
+  modalDirty: false
+};
+
+function setSigSaveEnabled(btnId, enabled) {
+  const btn = document.getElementById(btnId);
+  if (btn) btn.disabled = !enabled;
+}
+
+function resizeSignatureCanvas(canvas) {
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0 && (canvas.width !== Math.round(rect.width) || canvas.height !== Math.round(rect.height))) {
+    const tmp = document.createElement('canvas');
+    tmp.width = canvas.width;
+    tmp.height = canvas.height;
+    tmp.getContext('2d').drawImage(canvas, 0, 0);
+    canvas.width = Math.round(rect.width);
+    canvas.height = Math.round(rect.height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#101E38';
+    ctx.lineWidth = 2.6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }
+}
 
 function initSignaturePadCanvas(canvasId) {
   const canvas = document.getElementById(canvasId);
-  if (!canvas || _sigPadState[canvasId]?.initialized) return;
+  if (!canvas) return;
+  resizeSignatureCanvas(canvas);
+  if (_sigPadState[canvasId]?.initialized) return;
 
   const ctx = canvas.getContext('2d');
   ctx.strokeStyle = '#101E38';
@@ -2559,7 +2958,26 @@ function initSignaturePadCanvas(canvasId) {
   };
 
   const end = () => {
+    if (!pad.drawing) return;
     pad.drawing = false;
+    if (!pad.hasStrokes) return;
+    const draftUrl = trimSignatureCanvas(canvas);
+    if (canvasId === 'profSignatureCanvas') {
+      _sigDraftState.profileDraft = draftUrl;
+      _sigDraftState.profileDirty = true;
+      const preview = document.getElementById('profSavedSignaturePreview');
+      if (preview) preview.src = draftUrl;
+      document.getElementById('profSigDraftBadge')?.classList.remove('hidden');
+      setSigSaveEnabled('btnSaveProfileSig', true);
+    } else if (canvasId === 'docValSigCanvas') {
+      _sigDraftState.modalDraft = draftUrl;
+      _sigDraftState.modalDirty = true;
+      const previewImg = document.getElementById('docValSignaturePreview');
+      const statusLabel = document.getElementById('docValSigStatusLabel');
+      if (previewImg) previewImg.src = draftUrl;
+      if (statusLabel) statusLabel.textContent = 'Draft signature ready (click Save to persist)';
+      setSigSaveEnabled('btnSaveModalSig', true);
+    }
   };
 
   canvas.addEventListener('mousedown', start);
@@ -2568,6 +2986,42 @@ function initSignaturePadCanvas(canvasId) {
   canvas.addEventListener('touchstart', start, { passive: false });
   canvas.addEventListener('touchmove', move, { passive: false });
   window.addEventListener('touchend', end);
+  window.addEventListener('resize', () => resizeSignatureCanvas(canvas));
+}
+
+function trimSignatureCanvas(sourceCanvas) {
+  const w = sourceCanvas.width;
+  const h = sourceCanvas.height;
+  const ctx = sourceCanvas.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, w, h).data;
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const a = imgData[i + 3];
+      const isInk = a > 15 && (imgData[i] < 245 || imgData[i + 1] < 245 || imgData[i + 2] < 245);
+      if (isInk) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < minX || maxY < minY) return sourceCanvas.toDataURL('image/png');
+  const padPx = 8;
+  const sx = Math.max(0, minX - padPx);
+  const sy = Math.max(0, minY - padPx);
+  const sw = Math.min(w - sx, maxX - minX + 1 + padPx * 2);
+  const sh = Math.min(h - sy, maxY - minY + 1 + padPx * 2);
+  const trimmed = document.createElement('canvas');
+  trimmed.width = sw;
+  trimmed.height = sh;
+  const tctx = trimmed.getContext('2d');
+  tctx.fillStyle = '#FFFFFF';
+  tctx.fillRect(0, 0, sw, sh);
+  tctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  return trimmed.toDataURL('image/png');
 }
 
 function clearSignatureCanvas(canvasId) {
@@ -2576,30 +3030,101 @@ function clearSignatureCanvas(canvasId) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (_sigPadState[canvasId]) _sigPadState[canvasId].hasStrokes = false;
+  if (canvasId === 'profSignatureCanvas') {
+    _sigDraftState.profileDraft = '';
+    setSigSaveEnabled('btnSaveProfileSig', false);
+  } else if (canvasId === 'docValSigCanvas') {
+    _sigDraftState.modalDraft = '';
+    setSigSaveEnabled('btnSaveModalSig', false);
+  }
+}
+
+function cancelProfileSignatureDraft() {
+  clearSignatureCanvas('profSignatureCanvas');
+  _sigDraftState.profileDraft = '';
+  _sigDraftState.profileDirty = false;
+  const savedSig = (state.currentUser && state.currentUser.doctorSignature) || '';
+  const preview = document.getElementById('profSavedSignaturePreview');
+  if (preview) preview.src = savedSig;
+  document.getElementById('profSigDraftBadge')?.classList.add('hidden');
+  setSigSaveEnabled('btnSaveProfileSig', false);
+  showToast('Signature draft cancelled.', 'info');
+}
+
+function cancelModalSignatureDraft() {
+  clearSignatureCanvas('docValSigCanvas');
+  _sigDraftState.modalDraft = '';
+  _sigDraftState.modalDirty = false;
+  const savedSig = (state.currentUser && state.currentUser.doctorSignature) || '';
+  const hiddenInput = document.getElementById('docValSignatureData');
+  const previewImg = document.getElementById('docValSignaturePreview');
+  const statusLabel = document.getElementById('docValSigStatusLabel');
+  if (hiddenInput) hiddenInput.value = savedSig;
+  if (previewImg) previewImg.src = savedSig;
+  if (statusLabel) statusLabel.textContent = savedSig ? '✓ Saved Profile Signature Applied' : 'No signature applied';
+  setSigSaveEnabled('btnSaveModalSig', false);
+  showToast('Signature draft cancelled.', 'info');
 }
 
 async function saveDrawnProfileSignature() {
-  const canvas = document.getElementById('profSignatureCanvas');
-  if (!canvas) return;
-  const dataUrl = canvas.toDataURL('image/png');
-  await saveDoctorSignatureToServer(dataUrl);
+  const dataUrl = _sigDraftState.profileDraft;
+  if (!dataUrl || !_sigDraftState.profileDirty) {
+    showToast('Draw or upload a signature first.', 'warning');
+    return;
+  }
+  const ok = await saveDoctorSignatureToServer(dataUrl);
+  if (ok) {
+    _sigDraftState.profileDraft = '';
+    _sigDraftState.profileDirty = false;
+    document.getElementById('profSigDraftBadge')?.classList.add('hidden');
+    setSigSaveEnabled('btnSaveProfileSig', false);
+  }
 }
 
 function handleSignatureFileUpload(event, target = 'profile') {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
+  if (!['image/png', 'image/jpeg'].includes(file.type)) {
+    showToast('Only PNG or JPG signature images are allowed.', 'error');
+    event.target.value = '';
+    return;
+  }
+  if (file.size > 500 * 1024) {
+    showToast('Signature image must be 500 KB or smaller.', 'error');
+    event.target.value = '';
+    return;
+  }
   const reader = new FileReader();
-  reader.onload = async (e) => {
-    const dataUrl = e.target.result;
-    if (target === 'modal') {
-      const hiddenInput = document.getElementById('docValSignatureData');
-      const previewImg = document.getElementById('docValSignaturePreview');
-      if (hiddenInput) hiddenInput.value = dataUrl;
-      if (previewImg) previewImg.src = dataUrl;
-      showToast('Uploaded digital signature applied to certificate!', 'success');
-    } else {
-      await saveDoctorSignatureToServer(dataUrl);
-    }
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const off = document.createElement('canvas');
+      off.width = Math.min(600, img.width || 320);
+      off.height = Math.min(240, img.height || 100);
+      const octx = off.getContext('2d');
+      octx.fillStyle = '#FFFFFF';
+      octx.fillRect(0, 0, off.width, off.height);
+      octx.drawImage(img, 0, 0, off.width, off.height);
+      const trimmedUrl = trimSignatureCanvas(off);
+      if (target === 'modal') {
+        _sigDraftState.modalDraft = trimmedUrl;
+        _sigDraftState.modalDirty = true;
+        const previewImg = document.getElementById('docValSignaturePreview');
+        const statusLabel = document.getElementById('docValSigStatusLabel');
+        if (previewImg) previewImg.src = trimmedUrl;
+        if (statusLabel) statusLabel.textContent = 'Draft signature ready (click Save to persist)';
+        setSigSaveEnabled('btnSaveModalSig', true);
+      } else {
+        _sigDraftState.profileDraft = trimmedUrl;
+        _sigDraftState.profileDirty = true;
+        const preview = document.getElementById('profSavedSignaturePreview');
+        if (preview) preview.src = trimmedUrl;
+        document.getElementById('profSigDraftBadge')?.classList.remove('hidden');
+        setSigSaveEnabled('btnSaveProfileSig', true);
+      }
+      showToast('Signature preview ready. Click Save to confirm.', 'info');
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -2607,7 +3132,7 @@ function handleSignatureFileUpload(event, target = 'profile') {
 async function saveDoctorSignatureToServer(dataUrl) {
   try {
     const res = await fetch(`${API_BASE}/doctor/signature`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
       body: JSON.stringify({ doctorSignature: dataUrl })
     });
@@ -2617,14 +3142,17 @@ async function saveDoctorSignatureToServer(dataUrl) {
       localStorage.setItem('vitacall_user', JSON.stringify(state.currentUser));
       const preview = document.getElementById('profSavedSignaturePreview');
       if (preview) preview.src = dataUrl;
-      showToast('Doctor digital signature saved & encrypted at rest!', 'success');
+      showToast('Signature saved', 'success');
+      return true;
     } else {
       const err = await res.json();
       showToast(err.error || 'Could not save signature', 'error');
+      return false;
     }
   } catch (err) {
     console.error('Save signature error:', err);
     showToast('Error saving signature', 'error');
+    return false;
   }
 }
 
@@ -2637,23 +3165,32 @@ function applySavedDoctorSignatureOneClick() {
     if (hiddenInput) hiddenInput.value = savedSig;
     if (previewImg) previewImg.src = savedSig;
     if (statusLabel) statusLabel.textContent = '✓ Saved Profile Signature Applied (1-Click)';
+    _sigDraftState.modalDraft = '';
+    _sigDraftState.modalDirty = false;
+    setSigSaveEnabled('btnSaveModalSig', false);
     showToast('Saved digital signature applied with 1 click!', 'success');
   } else {
     showToast('Draw your signature on the pad or upload an image first.', 'info');
   }
 }
 
-function useDrawnModalSignature() {
-  const canvas = document.getElementById('docValSigCanvas');
-  if (!canvas) return;
-  const dataUrl = canvas.toDataURL('image/png');
+async function useDrawnModalSignature() {
+  const dataUrl = _sigDraftState.modalDraft;
+  if (!dataUrl || !_sigDraftState.modalDirty) {
+    showToast('Draw or upload a signature first.', 'warning');
+    return;
+  }
+  const ok = await saveDoctorSignatureToServer(dataUrl);
+  if (!ok) return;
   const hiddenInput = document.getElementById('docValSignatureData');
   const previewImg = document.getElementById('docValSignaturePreview');
   const statusLabel = document.getElementById('docValSigStatusLabel');
   if (hiddenInput) hiddenInput.value = dataUrl;
   if (previewImg) previewImg.src = dataUrl;
-  if (statusLabel) statusLabel.textContent = '✓ Drawn Signature Pad Applied';
-  showToast('Drawn signature applied to certificate!', 'success');
+  if (statusLabel) statusLabel.textContent = '✓ Signature Saved & Applied';
+  _sigDraftState.modalDraft = '';
+  _sigDraftState.modalDirty = false;
+  setSigSaveEnabled('btnSaveModalSig', false);
 }
 
 function openDoctorValidateModal(requestId) {
@@ -2705,12 +3242,20 @@ function openDoctorValidateModal(requestId) {
   const errEl = document.getElementById('doctorValidateError');
   if (errEl) errEl.classList.add('hidden');
 
+  renderRevisionPanelForModal(req, cr, 'docVal');
+
   document.getElementById('doctorValidateModal').classList.remove('hidden');
   setTimeout(() => initSignaturePadCanvas('docValSigCanvas'), 60);
   if (window.lucide) window.lucide.createIcons();
 }
 
 function closeDoctorValidateModal() {
+  if (_sigDraftState.modalDirty && !window.confirm('Discard changes? You have an unsaved signature draft.')) {
+    return;
+  }
+  _sigDraftState.modalDraft = '';
+  _sigDraftState.modalDirty = false;
+  setSigSaveEnabled('btnSaveModalSig', false);
   const modal = document.getElementById('doctorValidateModal');
   if (modal) modal.classList.add('hidden');
 }
@@ -3340,9 +3885,21 @@ async function renderCertificateToCanvas(cert) {
   ctx.fillText('Attending Campus Nurse', sig1CenterX, sigBaseY + 68);
 
   // Campus Medical Officer Signature
-  ctx.fillStyle = '#334155';
-  ctx.font = 'italic 22px Georgia, "Times New Roman", serif';
-  ctx.fillText('Dr. R. Santos, MD', sig2CenterX, sigBaseY - 12);
+  const docSigImgObj = cert.doctorSignature ? await loadImageAsync(cert.doctorSignature) : null;
+  if (docSigImgObj) {
+    const maxSigW = 180;
+    const maxSigH = 70;
+    const scale = Math.min(maxSigW / (docSigImgObj.width || maxSigW), maxSigH / (docSigImgObj.height || maxSigH), 1);
+    const drawW = Math.round((docSigImgObj.width || maxSigW) * scale);
+    const drawH = Math.round((docSigImgObj.height || maxSigH) * scale);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(sig2CenterX - drawW / 2 - 4, sigBaseY - drawH - 6, drawW + 8, drawH + 4);
+    ctx.drawImage(docSigImgObj, sig2CenterX - drawW / 2, sigBaseY - drawH - 4, drawW, drawH);
+  } else {
+    ctx.fillStyle = '#334155';
+    ctx.font = 'italic 22px Georgia, "Times New Roman", serif';
+    ctx.fillText('Dr. R. Santos, MD', sig2CenterX, sigBaseY - 12);
+  }
 
   ctx.beginPath();
   ctx.moveTo(sig2CenterX - 95, sigBaseY);
@@ -3459,6 +4016,24 @@ async function downloadCertificatePdf(certIdOrCode) {
     const code = (cert.verificationCode || cert.id || 'USTP-CERT').replace(/[^a-zA-Z0-9_-]/g, '-');
     const studentSlug = (cert.studentName || 'Student').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
     const fileName = `USTP-Medical-Certificate-${code}-${studentSlug}.pdf`;
+
+    const printableEl = document.getElementById('certPrintableArea');
+    if (printableEl) {
+      const imgs = [...printableEl.querySelectorAll('img')].filter(img => img.getAttribute('src'));
+      await Promise.all(imgs.map(img => (typeof img.decode === 'function' ? img.decode().catch(() => {}) : Promise.resolve())));
+    }
+
+    if (window.html2pdf && printableEl) {
+      await window.html2pdf().set({
+        margin: 6,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(printableEl).save();
+      showToast(`Downloaded ${fileName}`, 'success');
+      return;
+    }
 
     const canvas = await renderCertificateToCanvas(cert);
     const pdfBlob = buildPdfBlobFromJpegCanvas(canvas);
@@ -4236,7 +4811,7 @@ function openUserDetailModal(userId) {
   document.getElementById('userDetailModal').classList.remove('hidden');
 }
 
-function openAdminResetPasswordModal(userId) {
+async function openAdminResetPasswordModal(userId) {
   const u = (state.adminUsers || []).find(item => item.id === userId);
   if (!u) return;
 
@@ -4244,6 +4819,177 @@ function openAdminResetPasswordModal(userId) {
   document.getElementById('resetPwdUserSubtitle').textContent = `Account: ${u.name} (${u.email})`;
   document.getElementById('resetPwdInput').value = '';
   document.getElementById('adminResetPasswordModal').classList.remove('hidden');
+
+  const wrap = document.getElementById('adminPendingResetTickets');
+  const listEl = document.getElementById('adminPendingResetTicketsList');
+  if (wrap && listEl) {
+    try {
+      const res = await fetch(`${API_BASE}/admin/password-reset-tickets`);
+      if (res.ok) {
+        const tickets = await res.json();
+        if (Array.isArray(tickets) && tickets.length > 0) {
+          wrap.classList.remove('hidden');
+          listEl.innerHTML = tickets.map(t => `
+            <div class="p-2 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <div class="font-bold text-slate-800 truncate">${escHtml(t.userName)}</div>
+                <div class="text-[10px] text-slate-500 truncate">${escHtml(t.email)} • ${escHtml(t.type)}</div>
+              </div>
+              <button type="button" data-fn="openAdminResetPasswordModal" data-a1="${escHtml(t.userId)}"
+                class="px-2 py-1 rounded bg-amber-100 text-amber-800 font-bold text-[10px] flex-shrink-0">Select</button>
+            </div>
+          `).join('');
+        } else {
+          wrap.classList.add('hidden');
+          listEl.innerHTML = '';
+        }
+      }
+    } catch (_) {}
+  }
+}
+
+// =========================================================================
+// FORGOT PASSWORD & SELF-SERVICE RESET FLOW
+// =========================================================================
+let _forgotResetEmail = '';
+
+function openForgotPasswordModal() {
+  _forgotResetEmail = (document.getElementById('loginEmail')?.value || '').trim();
+  const emailInput = document.getElementById('forgotEmailInput');
+  if (emailInput) emailInput.value = _forgotResetEmail;
+  document.getElementById('forgotStep1Form')?.classList.remove('hidden');
+  document.getElementById('forgotStep2Form')?.classList.add('hidden');
+  document.getElementById('forgotStep1Error')?.classList.add('hidden');
+  document.getElementById('forgotStep2Error')?.classList.add('hidden');
+  document.getElementById('forgotCodeInput').value = '';
+  document.getElementById('forgotNewPwdInput').value = '';
+  document.getElementById('forgotConfirmPwdInput').value = '';
+  updateForgotPwdChecklist();
+  document.getElementById('forgotPasswordModal')?.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeForgotPasswordModal() {
+  document.getElementById('forgotPasswordModal')?.classList.add('hidden');
+}
+
+function backToForgotStep1() {
+  document.getElementById('forgotStep2Form')?.classList.add('hidden');
+  document.getElementById('forgotStep1Form')?.classList.remove('hidden');
+}
+
+function toggleForgotPwdVisibility() {
+  const inp = document.getElementById('forgotNewPwdInput');
+  const conf = document.getElementById('forgotConfirmPwdInput');
+  const btn = document.getElementById('btnToggleForgotPwd');
+  if (!inp) return;
+  const isPwd = inp.type === 'password';
+  inp.type = isPwd ? 'text' : 'password';
+  if (conf) conf.type = isPwd ? 'text' : 'password';
+  if (btn) btn.textContent = isPwd ? 'Hide' : 'Show';
+}
+
+function updateForgotPwdChecklist() {
+  const val = document.getElementById('forgotNewPwdInput')?.value || '';
+  const rules = [
+    ['chkLen', val.length >= 8, 'At least 8 characters'],
+    ['chkUpper', /[A-Z]/.test(val), 'At least 1 uppercase letter (A-Z)'],
+    ['chkLower', /[a-z]/.test(val), 'At least 1 lowercase letter (a-z)'],
+    ['chkNum', /[0-9]/.test(val), 'At least 1 number (0-9)'],
+    ['chkSym', /[^A-Za-z0-9]/.test(val), 'At least 1 symbol (!@#$%^&*)']
+  ];
+  for (const [id, ok, label] of rules) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.textContent = `${ok ? '✓' : '○'} ${label}`;
+    el.className = ok ? 'text-emerald-700 font-semibold' : 'text-slate-500';
+  }
+}
+
+async function submitForgotPasswordEmail(e) {
+  e.preventDefault();
+  const email = (document.getElementById('forgotEmailInput')?.value || '').trim();
+  const errEl = document.getElementById('forgotStep1Error');
+  const btn = document.getElementById('btnForgotSendCode');
+  if (errEl) errEl.classList.add('hidden');
+  if (btn) btn.disabled = true;
+  setButtonLoading('btnForgotSendCode', true);
+  try {
+    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (errEl) {
+        errEl.textContent = data.error || 'Could not process request.';
+        errEl.classList.remove('hidden');
+      }
+      return;
+    }
+    _forgotResetEmail = email;
+    const notice = document.getElementById('forgotNeutralNotice');
+    if (notice && data.message) {
+      notice.textContent = data.message;
+    }
+    document.getElementById('forgotStep1Form')?.classList.add('hidden');
+    document.getElementById('forgotStep2Form')?.classList.remove('hidden');
+  } catch (_) {
+    if (errEl) {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.classList.remove('hidden');
+    }
+  } finally {
+    setButtonLoading('btnForgotSendCode', false);
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function submitResetPasswordForm(e) {
+  e.preventDefault();
+  const code = (document.getElementById('forgotCodeInput')?.value || '').trim();
+  const newPassword = document.getElementById('forgotNewPwdInput')?.value || '';
+  const confirmPassword = document.getElementById('forgotConfirmPwdInput')?.value || '';
+  const errEl = document.getElementById('forgotStep2Error');
+  const btn = document.getElementById('btnResetPasswordSubmit');
+  if (errEl) errEl.classList.add('hidden');
+
+  if (newPassword !== confirmPassword) {
+    if (errEl) {
+      errEl.textContent = 'New password and confirmation do not match.';
+      errEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  setButtonLoading('btnResetPasswordSubmit', true);
+  try {
+    const res = await fetch(`${API_BASE}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: _forgotResetEmail, code, newPassword })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (errEl) {
+        errEl.textContent = data.error || 'Password reset failed.';
+        errEl.classList.remove('hidden');
+      }
+      return;
+    }
+    closeForgotPasswordModal();
+    showToast(data.message || 'Password reset successfully! Please sign in.', 'success');
+  } catch (_) {
+    if (errEl) {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.classList.remove('hidden');
+    }
+  } finally {
+    setButtonLoading('btnResetPasswordSubmit', false);
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function submitAdminPasswordReset(e) {
@@ -5539,6 +6285,28 @@ function renderAdminSettingsSection() {
   setChk('sysSettingMaintenanceMode', Boolean(s.maintenanceMode));
   setVal('sysSettingMaintenanceMsg', s.maintenanceMessage || '');
 
+  const fbSync = (state.systemInfo && state.systemInfo.firebaseSync) || null;
+  const fbBadge = document.getElementById('fbSyncBadge');
+  const fbLast = document.getElementById('fbSyncLastSuccess');
+  const fbDocs = document.getElementById('fbSyncDocsWritten');
+  const fbErr = document.getElementById('fbSyncLastError');
+  if (fbBadge && fbSync) {
+    fbBadge.textContent = fbSync.enabled ? 'ON (Minimal Allowlist)' : 'OFF (Default)';
+    fbBadge.className = fbSync.enabled
+      ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800'
+      : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600';
+    if (fbLast) fbLast.textContent = fbSync.lastSuccessAt ? new Date(fbSync.lastSuccessAt).toLocaleString() : 'Never';
+    if (fbDocs) fbDocs.textContent = String(fbSync.documentsWritten || 0);
+    if (fbErr) {
+      if (fbSync.lastError) {
+        fbErr.textContent = `Last Error: ${fbSync.lastError}`;
+        fbErr.classList.remove('hidden');
+      } else {
+        fbErr.classList.add('hidden');
+      }
+    }
+  }
+
   const infoCard = document.getElementById('adminSystemInfoCard');
   if (infoCard) {
     const info = state.systemInfo || {};
@@ -6015,6 +6783,10 @@ function initCspEventDelegation() {
     'applySavedDoctorSignatureOneClick()': () => applySavedDoctorSignatureOneClick(),
     "clearSignatureCanvas('docValSigCanvas')": () => clearSignatureCanvas('docValSigCanvas'),
     'useDrawnModalSignature()': () => useDrawnModalSignature(),
+    'cancelProfileSignatureDraft()': () => cancelProfileSignatureDraft(),
+    'cancelModalSignatureDraft()': () => cancelModalSignatureDraft(),
+    'addNurseLeaveRange()': () => addNurseLeaveRange(),
+    'cancelNurseScheduleChanges()': () => cancelNurseScheduleChanges(),
     'returnCheckupToNurse()': () => returnCheckupToNurse(),
     'if(event.target === this) closeCertificateModal()': (e, el) => { if (e.target === el) closeCertificateModal(); },
     'downloadCurrentCertificatePdf()': () => downloadCurrentCertificatePdf(),
@@ -6026,7 +6798,11 @@ function initCspEventDelegation() {
     "document.getElementById('adminResetPasswordModal').classList.add('hidden')": () => document.getElementById('adminResetPasswordModal')?.classList.add('hidden'),
     "document.getElementById('adminRecordModal').classList.add('hidden')": () => document.getElementById('adminRecordModal')?.classList.add('hidden'),
     'closeConfirmActionModal()': () => closeConfirmActionModal(),
-    "document.getElementById('forcePasswordChangeModal').classList.add('hidden')": () => document.getElementById('forcePasswordChangeModal')?.classList.add('hidden')
+    "document.getElementById('forcePasswordChangeModal').classList.add('hidden')": () => document.getElementById('forcePasswordChangeModal')?.classList.add('hidden'),
+    'openForgotPasswordModal()': () => openForgotPasswordModal(),
+    'closeForgotPasswordModal()': () => closeForgotPasswordModal(),
+    'backToForgotStep1()': () => backToForgotStep1(),
+    'toggleForgotPwdVisibility()': () => toggleForgotPwdVisibility()
   };
 
   const CSP_CHANGE_MAP = {
@@ -6040,14 +6816,19 @@ function initCspEventDelegation() {
     "handleSignatureFileUpload(event, 'modal')": (e) => handleSignatureFileUpload(e, 'modal'),
     'toggleAdminUserRoleFields()': () => toggleAdminUserRoleFields(),
     'applyRoleDefaultCheckboxes(this.value)': (e, el) => applyRoleDefaultCheckboxes(el.value),
-    'handleProfilePicSelect(event)': (e) => handleProfilePicSelect(e)
+    'handleProfilePicSelect(event)': (e) => handleProfilePicSelect(e),
+    'onClinRevisionSelectChange()': () => onClinRevisionSelectChange(),
+    'onDocValRevisionSelectChange()': () => onDocValRevisionSelectChange(),
+    'onDocCertFilterChange()': () => onDocCertFilterChange()
   };
 
   const CSP_INPUT_MAP = {
     'searchQueue(this.value)': (e, el) => searchQueue(el.value),
     'renderAdminUsersTable()': () => renderAdminUsersTable(),
     'renderAdminAuditLogsTable()': () => renderAdminAuditLogsTable(),
-    'renderAdminDataRecordsTable()': () => renderAdminDataRecordsTable()
+    'renderAdminDataRecordsTable()': () => renderAdminDataRecordsTable(),
+    'updateForgotPwdChecklist()': () => updateForgotPwdChecklist(),
+    'onDocCertSearchInput()': () => onDocCertSearchInput()
   };
 
   const CSP_SUBMIT_MAP = {
@@ -6066,7 +6847,9 @@ function initCspEventDelegation() {
     'submitUserPermissions(event)': (e) => submitUserPermissions(e),
     'submitAdminPasswordReset(event)': (e) => submitAdminPasswordReset(e),
     'submitAdminRecordForm(event)': (e) => submitAdminRecordForm(e),
-    'submitForcePasswordChange(event)': (e) => submitForcePasswordChange(e)
+    'submitForcePasswordChange(event)': (e) => submitForcePasswordChange(e),
+    'submitForgotPasswordEmail(event)': (e) => submitForgotPasswordEmail(e),
+    'submitResetPasswordForm(event)': (e) => submitResetPasswordForm(e)
   };
 
   const DYNAMIC_FN_MAP = {
@@ -6080,6 +6863,10 @@ function initCspEventDelegation() {
     viewCertificate: (a1) => viewCertificate(a1),
     openDoctorValidateModal: (a1) => openDoctorValidateModal(a1),
     assignRequestToNurse: (a1) => assignRequestToNurse(a1),
+    reassignRequestToNurse: (a1) => reassignRequestToNurse(a1),
+    setDocCertStatusChip: (a1) => setDocCertStatusChip(a1),
+    changeDocCertPage: (a1) => changeDocCertPage(a1),
+    removeNurseLeaveRange: (a1) => removeNurseLeaveRange(a1),
     updateRequestStatus: (a1, a2, a3) => updateRequestStatus(a1, a2, a3),
     openClinicalModal: (a1) => openClinicalModal(a1),
     updateAdminUserStatus: (a1, a2) => updateAdminUserStatus(a1, a2),
